@@ -4,9 +4,9 @@
 // Codigos dos tokens usados pelo scanner.
 //
 // PROVISORIO: enquanto o parser do Bison nao existe, o proprio projeto declara
-// os codigos aqui. Quando o Bison for escrito (issue #18), ele passa a gerar
-// PortugolToC.tab.h com os mesmos nomes, a ponte de inclusao do portugolToC.l
-// vai preferir aquele cabecalho e este arquivo pode ser apagado.
+// os codigos aqui. Quando o Bison passar a gerar PortugolToC.tab.h com os mesmos
+// nomes, a ponte de inclusao do portugolToC.l vai preferir aquele cabecalho e
+// este arquivo pode ser apagado.
 //
 // Os codigos comecam em 258 por convencao do Bison: 0 e o fim de arquivo, 1-255
 // ficam reservados para caracteres literais e 256/257 para uso interno.
@@ -18,7 +18,10 @@
 // cabecalho gerado existir esta definicao simplesmente nao entra.
 #if !defined(YYSTYPE) && !defined(YYSTYPE_IS_DECLARED)
 union YYSTYPE {
-    char* str;  ///< lexema de identificadores (alocado com new[], liberado por quem consome)
+    char* str;   ///< lexema de identificadores e conteudo de cadeias (new[], liberado por quem consome)
+    int ival;    ///< valor de um literal inteiro
+    double fval; ///< valor de um literal real
+    char cval;   ///< valor de um literal caracter
 };
 #define YYSTYPE_IS_DECLARED 1
 #endif
@@ -60,7 +63,13 @@ enum TipoToken {
     KW_ESCREVA,
 
     // Identificador de variavel ou funcao
-    IDENTIFICADOR
+    IDENTIFICADOR,
+
+    // Literais
+    NUM_INT,
+    NUM_REAL,
+    LIT_STRING,
+    LIT_CHAR
 };
 
 /// Nome legivel de um token, para mensagens de erro e testes.
@@ -87,6 +96,10 @@ inline const char* nomeToken(int token) {
         case KW_LEIA:       return "KW_LEIA";
         case KW_ESCREVA:    return "KW_ESCREVA";
         case IDENTIFICADOR: return "IDENTIFICADOR";
+        case NUM_INT:       return "NUM_INT";
+        case NUM_REAL:      return "NUM_REAL";
+        case LIT_STRING:    return "LIT_STRING";
+        case LIT_CHAR:      return "LIT_CHAR";
         default:            return "DESCONHECIDO";
     }
 }
