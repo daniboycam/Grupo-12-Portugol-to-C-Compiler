@@ -38,20 +38,10 @@ As mensagens de commit devem seguir o formato:
 
 ---
 
-## 3. Regras de Pull Request (PR)
+## 3. Pull Requests (PR)
 
-> ⚠️ **ATENÇÃO: TODO PULL REQUEST EXIGE REVISOR OBRIGATÓRIO!**
+1. **Branch de Destino:** Sempre abrir contra a branch **`devel`**.
+2. **Vínculo com a Issue:** Indique no corpo do PR `Resolve #<numero>` para vincular e fechar a issue automaticamente.
+3. **Revisão:** Atribua ao menos 1 colega do grupo como revisor no painel lateral. A mesclagem é feita após a revisão.
+4. **Validação:** Garanta que o projeto compila sem erros (`make` ou `cmake`) e que os testes passaram antes de abrir o PR.
 
-1. **Branch de Destino:**
-   - O PR deve ser sempre aberto contra a branch **`devel`**.
-2. **Vínculo com a Issue:**
-   - No corpo do PR, indique a issue relacionada utilizando palavras-chave de fechamento automático:
-     - `Resolve #<numero-da-issue>` ou `Closes #<numero-da-issue>`.
-3. **Revisor Obrigatório (Code Review):**
-   - É **obrigatório** atribuir pelo menos **1 membro do grupo** no painel lateral de **Reviewers**.
-   - O autor do PR **NUNCA** deve fazer o merge sem a aprovação explícita de ao menos um colega de equipe.
-   - O revisor deve inspecionar o código, verificar conformidade e aprovar (*Approve*) antes da mesclagem.
-4. **Verificação antes da Abertura:**
-   - O código deve compilar localmente sem erros ou warnings (`make` ou `cmake --build build`).
-   - Todos os testes devem estar passando.
-   - O pipeline do GitHub Actions (CI) deve passar com status verde.
