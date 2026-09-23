@@ -82,9 +82,10 @@ static void erroLexico(const string& mensagem) {
 %option nounput
 %option noinput
 
-/* Estados de inicialização exclusiva (para ler strings e caracteres) */
+/* Estados de inicialização exclusiva (para ler strings, caracteres e comentários de bloco) */
 %x STRING
 %x CHAR
+%x COMMENT_BLOCO
 
 /* Definições regulares (atalhos/apelidos para expressões regulares usadas nas regras) */
 DIGITO    [0-9]
@@ -98,15 +99,20 @@ NUM_MAL   {DIGITO}+({LETRA}|_)({LETRA}|{DIGITO}|_)*
 ESPACO    [ \t]+
 NOVA_LINHA \n
 COMENTARIO_LINHA "//"[^\n]*
-COMENTARIO_BLOCO "/*"([^*]|"*"+[^*/])*"*"+"/"
 
 %%
 
-    /* --- Separadores: nao geram token (docs/gramatica-lexica.md, secao 2) --- */
+    /* --- Separadores: nao geram token (docs/gramatica-lexica.md, secao 2 e 8) --- */
 {ESPACO}             { /* ignora */ }
 {NOVA_LINHA}         { /* a contagem de linhas fica por conta do yylineno */ }
 {COMENTARIO_LINHA}   { /* ignora */ }
-{COMENTARIO_BLOCO}   { /* ignora */ }
+
+    /* --- Comentário em bloco (docs/gramatica-lexica.md, secao 8 e issue #12) --- */
+"/*"                 { linhaLiteral = yylineno; BEGIN(COMMENT_BLOCO); }
+<COMMENT_BLOCO>"*/"  { BEGIN(INITIAL); }
+<COMMENT_BLOCO>\n    { /* ignora quebra de linha dentro do comentario */ }
+<COMMENT_BLOCO><<EOF>> { erroLexicoNaLinha(linhaLiteral, "comentario de bloco nao fechado no fim do arquivo"); BEGIN(INITIAL); return 0; }
+<COMMENT_BLOCO>.     { /* ignora caractere dentro do comentario */ }
 
     /* --- Palavras reservadas (docs/gramatica-lexica.md, secao 3) ---
      * Precisam vir antes da regra do identificador. Em caso de empate no
@@ -221,10 +227,54 @@ COMENTARIO_BLOCO "/*"([^*]|"*"+[^*/])*"*"+"/"
 <CHAR><<EOF>>        { erroLexicoNaLinha(linhaLiteral, "literal caracter nao fechado no fim do arquivo"); BEGIN(INITIAL); return 0; }
 <CHAR>.              { conteudo += yytext[0]; }
 
-    /* --- Provisorio ---
-     * Operadores e delimitadores ainda nao tem regra. Ate la, esta regra evita
-     * que o Flex aplique o ECHO padrao e copie a entrada para a saida.
-     */
+    /* --- Operadores de Atribuição Compostos e Bitwise (docs/gramatica-lexica.md, secao 6.5) --- */
+"<<="                { return ATRIB_DESLOCA_ESQ; }
+">>="                { return ATRIB_DESLOCA_DIR; }
+"+="                 { return ATRIB_MAIS; }
+"-="                 { return ATRIB_MENOS; }
+"*="                 { return ATRIB_VEZES; }
+"/="                 { return ATRIB_DIVIDIDO; }
+"%="                 { return ATRIB_RESTO; }
+"&="                 { return ATRIB_BIT_E; }
+"|="                 { return ATRIB_BIT_OU; }
+"^="                 { return ATRIB_BIT_XOU; }
+
+    /* --- Operadores Relacionais Compostos, Lógicos e Bitwise (docs/gramatica-lexica.md, secao 6.2, 6.3, 6.4) --- */
+"=="                 { return IGUAL; }
+"!="                 { return DIFERENTE; }
+"<="                 { return MENOR_IGUAL; }
+">="                 { return MAIOR_IGUAL; }
+"&&"                 { return E; }
+"||"                 { return OU; }
+"<<"                 { return DESLOCA_ESQ; }
+">>"                 { return DESLOCA_DIR; }
+
+    /* --- Operadores Simples e Atribuição --- */
+"+"                  { return MAIS; }
+"-"                  { return MENOS; }
+"*"                  { return VEZES; }
+"/"                  { return DIVIDIDO; }
+"%"                  { return RESTO; }
+"="                  { return ATRIBUICAO; }
+"<"                  { return MENOR; }
+">"                  { return MAIOR; }
+"!"                  { return NAO; }
+"&"                  { return BIT_E; }
+"|"                  { return BIT_OU; }
+"^"                  { return BIT_XOU; }
+"~"                  { return BIT_NAO; }
+
+    /* --- Delimitadores (docs/gramatica-lexica.md, secao 7) --- */
+"("                  { return ABRE_PAREN; }
+")"                  { return FECHA_PAREN; }
+"{"                  { return ABRE_CHAVE; }
+"}"                  { return FECHA_CHAVE; }
+"["                  { return ABRE_COLCHETE; }
+"]"                  { return FECHA_COLCHETE; }
+","                  { return VIRGULA; }
+";"                  { return PONTO_VIRGULA; }
+
+    /* --- Caractere Inesperado --- */
 .                    { erroLexico(string("caractere inesperado: ") + yytext); }
 
 %%
