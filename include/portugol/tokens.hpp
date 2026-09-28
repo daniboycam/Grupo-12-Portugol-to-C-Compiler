@@ -69,7 +69,58 @@ enum TipoToken {
     NUM_INT,
     NUM_REAL,
     LIT_STRING,
-    LIT_CHAR
+    LIT_CHAR,
+
+    // Operadores Aritmeticos
+    MAIS,
+    MENOS,
+    VEZES,
+    DIVIDIDO,
+    RESTO,
+
+    // Operadores Relacionais
+    IGUAL,
+    DIFERENTE,
+    MENOR_IGUAL,
+    MENOR,
+    MAIOR_IGUAL,
+    MAIOR,
+
+    // Operadores Logicos
+    E,
+    OU,
+    NAO,
+
+    // Operadores Bit a Bit
+    BIT_E,
+    BIT_OU,
+    BIT_XOU,
+    BIT_NAO,
+    DESLOCA_ESQ,
+    DESLOCA_DIR,
+
+    // Atribuicao
+    ATRIBUICAO,
+    ATRIB_MAIS,
+    ATRIB_MENOS,
+    ATRIB_VEZES,
+    ATRIB_DIVIDIDO,
+    ATRIB_RESTO,
+    ATRIB_BIT_E,
+    ATRIB_BIT_OU,
+    ATRIB_BIT_XOU,
+    ATRIB_DESLOCA_ESQ,
+    ATRIB_DESLOCA_DIR,
+
+    // Delimitadores
+    ABRE_PAREN,
+    FECHA_PAREN,
+    ABRE_CHAVE,
+    FECHA_CHAVE,
+    ABRE_COLCHETE,
+    FECHA_COLCHETE,
+    VIRGULA,
+    PONTO_VIRGULA
 };
 
 /// Nome legivel de um token, para mensagens de erro e testes.
@@ -100,6 +151,45 @@ inline const char* nomeToken(int token) {
         case NUM_REAL:      return "NUM_REAL";
         case LIT_STRING:    return "LIT_STRING";
         case LIT_CHAR:      return "LIT_CHAR";
+        case MAIS:          return "MAIS";
+        case MENOS:         return "MENOS";
+        case VEZES:         return "VEZES";
+        case DIVIDIDO:      return "DIVIDIDO";
+        case RESTO:         return "RESTO";
+        case IGUAL:         return "IGUAL";
+        case DIFERENTE:     return "DIFERENTE";
+        case MENOR_IGUAL:   return "MENOR_IGUAL";
+        case MENOR:         return "MENOR";
+        case MAIOR_IGUAL:   return "MAIOR_IGUAL";
+        case MAIOR:         return "MAIOR";
+        case E:             return "E";
+        case OU:            return "OU";
+        case NAO:           return "NAO";
+        case BIT_E:         return "BIT_E";
+        case BIT_OU:        return "BIT_OU";
+        case BIT_XOU:       return "BIT_XOU";
+        case BIT_NAO:       return "BIT_NAO";
+        case DESLOCA_ESQ:   return "DESLOCA_ESQ";
+        case DESLOCA_DIR:   return "DESLOCA_DIR";
+        case ATRIBUICAO:    return "ATRIBUICAO";
+        case ATRIB_MAIS:    return "ATRIB_MAIS";
+        case ATRIB_MENOS:   return "ATRIB_MENOS";
+        case ATRIB_VEZES:   return "ATRIB_VEZES";
+        case ATRIB_DIVIDIDO: return "ATRIB_DIVIDIDO";
+        case ATRIB_RESTO:   return "ATRIB_RESTO";
+        case ATRIB_BIT_E:   return "ATRIB_BIT_E";
+        case ATRIB_BIT_OU:  return "ATRIB_BIT_OU";
+        case ATRIB_BIT_XOU: return "ATRIB_BIT_XOU";
+        case ATRIB_DESLOCA_ESQ: return "ATRIB_DESLOCA_ESQ";
+        case ATRIB_DESLOCA_DIR: return "ATRIB_DESLOCA_DIR";
+        case ABRE_PAREN:    return "ABRE_PAREN";
+        case FECHA_PAREN:   return "FECHA_PAREN";
+        case ABRE_CHAVE:    return "ABRE_CHAVE";
+        case FECHA_CHAVE:   return "FECHA_CHAVE";
+        case ABRE_COLCHETE: return "ABRE_COLCHETE";
+        case FECHA_COLCHETE: return "FECHA_COLCHETE";
+        case VIRGULA:       return "VIRGULA";
+        case PONTO_VIRGULA: return "PONTO_VIRGULA";
         default:            return "DESCONHECIDO";
     }
 }
