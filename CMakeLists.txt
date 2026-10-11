@@ -7,25 +7,28 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_compile_options(-Wall -Wextra -Wpedantic)
 
-# Localiza o utilitário do Flex instalado no sistema operacional
+find_package(BISON REQUIRED)
 find_package(FLEX REQUIRED)
 
-# Define onde está o arquivo de regras (.l) e onde o arquivo C++ gerado (.cpp) será salvo
+# Bison (analisador sintatico)
+set(PARSER_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/PortugolToC.y)
+set(PARSER_OUT ${CMAKE_CURRENT_BINARY_DIR}/PortugolToC.tab.cpp)
+set(PARSER_HDR ${CMAKE_CURRENT_BINARY_DIR}/PortugolToC.tab.hpp)
+BISON_TARGET(Parser ${PARSER_SRC} ${PARSER_OUT} DEFINES_FILE ${PARSER_HDR})
+
+# Flex (analisador lexico)
 set(SCANNER_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/portugolToC.l)
 set(SCANNER_OUT ${CMAKE_CURRENT_BINARY_DIR}/lex.yy.cpp)
-
-# Cria a tarefa de compilação: o CMake chamará o Flex para gerar o scanner C++
 FLEX_TARGET(Scanner ${SCANNER_SRC} ${SCANNER_OUT})
 
-# Diretórios de cabeçalho: permite encontrar os headers do projeto e os arquivos gerados no build
+# Dependencia: Bison gera o cabecalho antes do Flex compilar
+ADD_FLEX_BISON_DEPENDENCY(Scanner Parser)
+
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-# Compila os fontes C++ (.cpp) juntamente com a saída gerada pelo Flex (${FLEX_Scanner_OUTPUTS})
 file(GLOB PORTUGOLC_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
-add_executable(portugolc ${PORTUGOLC_SRCS} ${FLEX_Scanner_OUTPUTS})
-
-
+add_executable(portugolc ${PORTUGOLC_SRCS} ${BISON_Parser_OUTPUTS} ${FLEX_Scanner_OUTPUTS})
