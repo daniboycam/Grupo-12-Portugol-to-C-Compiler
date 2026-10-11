@@ -5,27 +5,22 @@
 #include <cerrno>
 #include <climits>
 
-// --- Ponte de inclusão dos tokens do Bison ---
-// O Bison é o analisador sintático que define os códigos numéricos de cada token (ex: TOKEN_SE, TOKEN_INTEIRO).
-// O Flex (analisador léxico) precisa desse cabeçalho (.h) para devolver o token correto ao Bison.
-// As diretivas abaixo tentam incluir o cabeçalho automaticamente se ele já tiver sido gerado:
-#if __has_include("PortugolToC.tab.h")
+#if __has_include("PortugolToC.tab.hpp")
+#include "PortugolToC.tab.hpp"
+#elif __has_include("PortugolToC.tab.h")
 #include "PortugolToC.tab.h"
 #elif __has_include("y.tab.h")
 #include "y.tab.h"
 #elif __has_include("parser.tab.hpp")
 #include "parser.tab.hpp"
 #else
-// Enquanto o Bison nao existe, os codigos vem do cabecalho do proprio projeto
-// e o scanner precisa definir o yylval que o parser definiria.
 #include "portugol/tokens.hpp"
 YYSTYPE yylval;
 #endif
 
 using namespace std;
 
-// Copia o lexema para memoria propria: o yytext pertence ao Flex e e sobrescrito
-// no proximo token. Quem consome o yylval.str e responsavel por liberar com delete[].
+// Copia o lexema para memoria propria
 static char* duplicarLexema(const char* texto) {
     const size_t tamanho = strlen(texto) + 1;
     char* copia = new char[tamanho];
@@ -33,20 +28,9 @@ static char* duplicarLexema(const char* texto) {
     return copia;
 }
 
-// Conteudo acumulado da cadeia ou do caracter que esta sendo lido, ja com as
-// sequencias de escape resolvidas.
-//
-// Limitacao conhecida: o escape \0 e guardado no meio do conteudo, mas o valor
-// entregue no yylval.str e uma string terminada em zero, entao o texto depois
-// dele se perde.
 static string conteudo;
-
-// Linha onde o literal em leitura comecou, para que o erro de literal nao
-// fechado aponte a abertura e nao a quebra de linha que interrompeu.
 static int linhaLiteral = 0;
 
-// Traduz a letra que vem depois da barra invertida para o caractere que ela
-// representa. Devolve 0 se a sequencia nao existe na linguagem.
 static char valorEscape(char letra) {
     switch (letra) {
         case 'n':  return '\n';
@@ -59,8 +43,6 @@ static char valorEscape(char letra) {
     }
 }
 
-// Mensagem provisoria de erro lexico. O formato definitivo, com coluna, ainda
-// sera padronizado.
 static void erroLexicoNaLinha(int linha, const string& mensagem) {
     cerr << "erro lexico na linha " << linha << ": " << mensagem << "\n";
 }
@@ -70,24 +52,17 @@ static void erroLexico(const string& mensagem) {
 }
 %}
 
-/*
- * Opções de Configuração do Flex:
- * - noyywrap: Desativa a necessidade de tratar múltiplos arquivos de entrada consecutivamente.
- * - yylineno: Mantém e incrementa a variável global 'yylineno' com o número da linha atual.
- * - nounput: Desativa a função unput() interna do Flex para evitar avisos de código não utilizado.
- * - noinput: Desativa a função input() interna do Flex para evitar avisos de código não utilizado.
- */
 %option noyywrap
 %option yylineno
 %option nounput
 %option noinput
 
-/* Estados de inicialização exclusiva (para ler strings, caracteres e comentários de bloco) */
+/* Estados exclusivos */
 %x STRING
 %x CHAR
 %x COMMENT_BLOCO
 
-/* Definições regulares (atalhos/apelidos para expressões regulares usadas nas regras) */
+/* Definicoes regulares */
 DIGITO    [0-9]
 LETRA     [A-Za-z]
 ID        ({LETRA}|_)({LETRA}|{DIGITO}|_)*
@@ -102,25 +77,19 @@ COMENTARIO_LINHA "//"[^\n]*
 
 %%
 
-    /* --- Separadores: nao geram token (docs/gramatica-lexica.md, secao 2 e 8) --- */
+    /* Separadores */
 {ESPACO}             { /* ignora */ }
-{NOVA_LINHA}         { /* a contagem de linhas fica por conta do yylineno */ }
+{NOVA_LINHA}         { /* ignora */ }
 {COMENTARIO_LINHA}   { /* ignora */ }
 
-    /* --- Comentário em bloco (docs/gramatica-lexica.md, secao 8 e issue #12) --- */
+    /* Comentario em bloco */
 "/*"                 { linhaLiteral = yylineno; BEGIN(COMMENT_BLOCO); }
 <COMMENT_BLOCO>"*/"  { BEGIN(INITIAL); }
-<COMMENT_BLOCO>\n    { /* ignora quebra de linha dentro do comentario */ }
+<COMMENT_BLOCO>\n    { }
 <COMMENT_BLOCO><<EOF>> { erroLexicoNaLinha(linhaLiteral, "comentario de bloco nao fechado no fim do arquivo"); BEGIN(INITIAL); return 0; }
-<COMMENT_BLOCO>.     { /* ignora caractere dentro do comentario */ }
+<COMMENT_BLOCO>.     { }
 
-    /* --- Palavras reservadas (docs/gramatica-lexica.md, secao 3) ---
-     * Precisam vir antes da regra do identificador. Em caso de empate no
-     * comprimento, o Flex escolhe a regra declarada primeiro, entao "se" e
-     * reconhecido como KW_SE e nao como IDENTIFICADOR. Ja "senaose" casa com
-     * {ID} por ser mais longo, que e o comportamento desejado.
-     * A linguagem e case sensitive: "Se" e "SE" sao identificadores comuns.
-     */
+    /* Palavras reservadas */
 "programa"           { return KW_PROGRAMA; }
 "funcao"             { return KW_FUNCAO; }
 "retorne"            { return KW_RETORNE; }
@@ -146,15 +115,10 @@ COMENTARIO_LINHA "//"[^\n]*
 "leia"               { return KW_LEIA; }
 "escreva"            { return KW_ESCREVA; }
 
-    /* --- Identificadores (docs/gramatica-lexica.md, secao 4) ---
-     * O lexema vai para o yylval para o parser e a tabela de simbolos usarem.
-     */
+    /* Identificadores */
 {ID}                 { yylval.str = duplicarLexema(yytext); return IDENTIFICADOR; }
 
-
-    /* --- Literais numericos (docs/gramatica-lexica.md, secao 5) ---
-     * O sinal negativo nao faz parte do literal: "-5" sao dois tokens.
-     */
+    /* Literais numericos */
 {REAL}               {
                        errno = 0;
                        const double valor = strtod(yytext, nullptr);
@@ -180,10 +144,7 @@ COMENTARIO_LINHA "//"[^\n]*
 {REAL_MAL}           { erroLexico(string("literal real mal formado: ") + yytext); }
 {NUM_MAL}            { erroLexico(string("identificador nao pode comecar com digito: ") + yytext); }
 
-    /* --- Cadeia (docs/gramatica-lexica.md, secao 5.3) ---
-     * Lida em estado exclusivo para resolver os escapes e detectar a cadeia
-     * que nao foi fechada antes do fim da linha.
-     */
+    /* Cadeia */
 \"                   { conteudo.clear(); linhaLiteral = yylineno; BEGIN(STRING); }
 
 <STRING>\\.          {
@@ -203,7 +164,7 @@ COMENTARIO_LINHA "//"[^\n]*
 <STRING><<EOF>>      { erroLexicoNaLinha(linhaLiteral, "cadeia nao fechada no fim do arquivo"); BEGIN(INITIAL); return 0; }
 <STRING>.            { conteudo += yytext[0]; }
 
-    /* --- Caracter (docs/gramatica-lexica.md, secao 5.4) --- */
+    /* Caracter */
 '                    { conteudo.clear(); linhaLiteral = yylineno; BEGIN(CHAR); }
 
 <CHAR>\\.            {
@@ -227,7 +188,7 @@ COMENTARIO_LINHA "//"[^\n]*
 <CHAR><<EOF>>        { erroLexicoNaLinha(linhaLiteral, "literal caracter nao fechado no fim do arquivo"); BEGIN(INITIAL); return 0; }
 <CHAR>.              { conteudo += yytext[0]; }
 
-    /* --- Operadores de Atribuição Compostos e Bitwise (docs/gramatica-lexica.md, secao 6.5) --- */
+    /* Atribuicao composta */
 "<<="                { return ATRIB_DESLOCA_ESQ; }
 ">>="                { return ATRIB_DESLOCA_DIR; }
 "+="                 { return ATRIB_MAIS; }
@@ -239,7 +200,7 @@ COMENTARIO_LINHA "//"[^\n]*
 "|="                 { return ATRIB_BIT_OU; }
 "^="                 { return ATRIB_BIT_XOU; }
 
-    /* --- Operadores Relacionais Compostos, Lógicos e Bitwise (docs/gramatica-lexica.md, secao 6.2, 6.3, 6.4) --- */
+    /* Operadores compostos */
 "=="                 { return IGUAL; }
 "!="                 { return DIFERENTE; }
 "<="                 { return MENOR_IGUAL; }
@@ -249,7 +210,7 @@ COMENTARIO_LINHA "//"[^\n]*
 "<<"                 { return DESLOCA_ESQ; }
 ">>"                 { return DESLOCA_DIR; }
 
-    /* --- Operadores Simples e Atribuição --- */
+    /* Operadores simples */
 "+"                  { return MAIS; }
 "-"                  { return MENOS; }
 "*"                  { return VEZES; }
@@ -264,7 +225,7 @@ COMENTARIO_LINHA "//"[^\n]*
 "^"                  { return BIT_XOU; }
 "~"                  { return BIT_NAO; }
 
-    /* --- Delimitadores (docs/gramatica-lexica.md, secao 7) --- */
+    /* Delimitadores */
 "("                  { return ABRE_PAREN; }
 ")"                  { return FECHA_PAREN; }
 "{"                  { return ABRE_CHAVE; }
@@ -274,7 +235,7 @@ COMENTARIO_LINHA "//"[^\n]*
 ","                  { return VIRGULA; }
 ";"                  { return PONTO_VIRGULA; }
 
-    /* --- Caractere Inesperado --- */
+    /* Erro lexico */
 .                    { erroLexico(string("caractere inesperado: ") + yytext); }
 
 %%

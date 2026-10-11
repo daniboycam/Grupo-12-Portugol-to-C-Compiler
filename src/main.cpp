@@ -1,7 +1,14 @@
 #include <iostream>
 
-// Stub: o compilador de verdade entra aqui nas proximas issues.
+extern int yyparse();
+
 int main() {
-    std::cout << "portugolc\n";
-    return 0;
+    int resultado = yyparse();
+    if (resultado == 0) {
+        std::cout << "Analise sintatica concluida com sucesso.\n";
+        return 0;
+    } else {
+        std::cerr << "Falha na analise sintatica.\n";
+        return 1;
+    }
 }
