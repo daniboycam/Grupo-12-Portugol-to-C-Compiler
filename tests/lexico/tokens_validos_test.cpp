@@ -10,6 +10,7 @@ static std::vector<int> codigos(const std::string& fonte, std::string* erros = n
 
 // ===== Token único: palavras reservadas, operadores e delimitadores =====
 struct CasoToken { std::string entrada; int codigo; };
+void PrintTo(const CasoToken& c, std::ostream* os) { *os << nome_do_token(c.codigo); }
 class TokenUnico : public ::testing::TestWithParam<CasoToken> {};
 
 TEST_P(TokenUnico, ReconheceUmToken) {
