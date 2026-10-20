@@ -33,6 +33,25 @@ make
 
 Os dois caminhos geram o binario em `build/portugolc`.
 
+## Usando
+
+Modo scanner, que lista os tokens reconhecidos pelo analisador lexico:
+
+```bash
+./build/portugolc --tokens examples/exemplo.por
+```
+
+```
+LINHA   TOKEN                 LEXEMA
+2       KW_PROGRAMA           programa
+2       ABRE_CHAVE            {
+3       KW_FUNCAO             funcao
+...
+```
+
+Sem `--tokens`, o programa entrega os tokens ao analisador sintatico. Sem
+arquivo, le da entrada padrao. `--ajuda` mostra as opcoes.
+
 ## Requisitos
 
 - Compilador C++17 (g++ 9+ ou clang 10+)
