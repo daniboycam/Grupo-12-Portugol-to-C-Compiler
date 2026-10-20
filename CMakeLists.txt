@@ -26,6 +26,13 @@ include_directories(
 
 # Compila os fontes C++ (.cpp) juntamente com a saída gerada pelo Flex (${FLEX_Scanner_OUTPUTS})
 file(GLOB PORTUGOLC_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
-add_executable(portugolc ${PORTUGOLC_SRCS} ${FLEX_Scanner_OUTPUTS})
+list(REMOVE_ITEM PORTUGOLC_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)  # ajuste ao nome real
+
+add_library(portugolc_core STATIC ${PORTUGOLC_SRCS} ${FLEX_Scanner_OUTPUTS})
+add_executable(portugolc ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+target_link_libraries(portugolc PRIVATE portugolc_core)
+
+enable_testing()
+add_subdirectory(tests)
 
 
