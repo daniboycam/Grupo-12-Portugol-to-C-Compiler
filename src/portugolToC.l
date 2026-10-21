@@ -29,7 +29,10 @@ static char* duplicarLexema(const char* texto) {
 }
 
 static string conteudo;
+int yycolumn = 1;
+static int colunaToken = 1;
 static int linhaLiteral = 0;
+static int colunaLiteral = 0;
 
 static char valorEscape(char letra) {
     switch (letra) {
@@ -43,13 +46,17 @@ static char valorEscape(char letra) {
     }
 }
 
-static void erroLexicoNaLinha(int linha, const string& mensagem) {
-    cerr << "erro lexico na linha " << linha << ": " << mensagem << "\n";
+static void erroLexicoNaPosicao(int linha, int coluna, const string& mensagem) {
+    cerr << "Erro léxico [Linha " << linha << ", Coluna " << coluna << "]: " << mensagem << "\n";
 }
 
 static void erroLexico(const string& mensagem) {
-    erroLexicoNaLinha(yylineno, mensagem);
+    erroLexicoNaPosicao(yylineno, colunaToken, mensagem);
 }
+
+#define YY_USER_ACTION \
+    colunaToken = yycolumn; \
+    yycolumn += yyleng;
 %}
 
 %option noyywrap
@@ -79,14 +86,14 @@ COMENTARIO_LINHA "//"[^\n]*
 
     /* Separadores */
 {ESPACO}             { /* ignora */ }
-{NOVA_LINHA}         { /* ignora */ }
+{NOVA_LINHA}         { yycolumn = 1; }
 {COMENTARIO_LINHA}   { /* ignora */ }
 
     /* Comentario em bloco */
-"/*"                 { linhaLiteral = yylineno; BEGIN(COMMENT_BLOCO); }
+"/*"                 { linhaLiteral = yylineno; colunaLiteral = colunaToken; BEGIN(COMMENT_BLOCO); }
 <COMMENT_BLOCO>"*/"  { BEGIN(INITIAL); }
-<COMMENT_BLOCO>\n    { }
-<COMMENT_BLOCO><<EOF>> { erroLexicoNaLinha(linhaLiteral, "comentario de bloco nao fechado no fim do arquivo"); BEGIN(INITIAL); return 0; }
+<COMMENT_BLOCO>\n    { yycolumn = 1; }
+<COMMENT_BLOCO><<EOF>> { erroLexicoNaPosicao(linhaLiteral, colunaLiteral, "comentario de bloco nao fechado no fim do arquivo"); BEGIN(INITIAL); return 0; }
 <COMMENT_BLOCO>.     { }
 
     /* Palavras reservadas */
@@ -145,7 +152,7 @@ COMENTARIO_LINHA "//"[^\n]*
 {NUM_MAL}            { erroLexico(string("identificador nao pode comecar com digito: ") + yytext); }
 
     /* Cadeia */
-\"                   { conteudo.clear(); linhaLiteral = yylineno; BEGIN(STRING); }
+\"                   { conteudo.clear(); linhaLiteral = yylineno; colunaLiteral = colunaToken; BEGIN(STRING); }
 
 <STRING>\\.          {
                        const char valor = valorEscape(yytext[1]);
@@ -160,12 +167,12 @@ COMENTARIO_LINHA "//"[^\n]*
                        BEGIN(INITIAL);
                        return LIT_STRING;
                      }
-<STRING>\n           { erroLexicoNaLinha(linhaLiteral, "cadeia nao fechada"); BEGIN(INITIAL); }
-<STRING><<EOF>>      { erroLexicoNaLinha(linhaLiteral, "cadeia nao fechada no fim do arquivo"); BEGIN(INITIAL); return 0; }
+<STRING>\n           { erroLexicoNaPosicao(linhaLiteral, colunaLiteral, "cadeia nao fechada"); yycolumn = 1; BEGIN(INITIAL); }
+<STRING><<EOF>>      { erroLexicoNaPosicao(linhaLiteral, colunaLiteral, "cadeia nao fechada no fim do arquivo"); BEGIN(INITIAL); return 0; }
 <STRING>.            { conteudo += yytext[0]; }
 
     /* Caracter */
-'                    { conteudo.clear(); linhaLiteral = yylineno; BEGIN(CHAR); }
+'                    { conteudo.clear(); linhaLiteral = yylineno; colunaLiteral = colunaToken; BEGIN(CHAR); }
 
 <CHAR>\\.            {
                        const char valor = valorEscape(yytext[1]);
@@ -178,14 +185,14 @@ COMENTARIO_LINHA "//"[^\n]*
 <CHAR>'              {
                        BEGIN(INITIAL);
                        if (conteudo.size() != 1) {
-                           erroLexico("literal caracter deve conter exatamente um caractere");
+                           erroLexicoNaPosicao(linhaLiteral, colunaLiteral, "literal caracter deve conter exatamente um caractere");
                        } else {
                            yylval.cval = conteudo[0];
                            return LIT_CHAR;
                        }
                      }
-<CHAR>\n             { erroLexicoNaLinha(linhaLiteral, "literal caracter nao fechado"); BEGIN(INITIAL); }
-<CHAR><<EOF>>        { erroLexicoNaLinha(linhaLiteral, "literal caracter nao fechado no fim do arquivo"); BEGIN(INITIAL); return 0; }
+<CHAR>\n             { erroLexicoNaPosicao(linhaLiteral, colunaLiteral, "literal caracter nao fechado"); yycolumn = 1; BEGIN(INITIAL); }
+<CHAR><<EOF>>        { erroLexicoNaPosicao(linhaLiteral, colunaLiteral, "literal caracter nao fechado no fim do arquivo"); BEGIN(INITIAL); return 0; }
 <CHAR>.              { conteudo += yytext[0]; }
 
     /* Atribuicao composta */
@@ -236,6 +243,6 @@ COMENTARIO_LINHA "//"[^\n]*
 ";"                  { return PONTO_VIRGULA; }
 
     /* Erro lexico */
-.                    { erroLexico(string("caractere inesperado: ") + yytext); }
+.                    { erroLexico(string("caractere inesperado '") + yytext + "'"); }
 
 %%
