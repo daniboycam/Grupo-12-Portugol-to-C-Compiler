@@ -177,8 +177,7 @@ TEST(Separadores, QuebrasDeLinhaSaoDescartadas) {
     EXPECT_EQ(erros, "");
 }
 
-// TODO(#41): reabilitar quando ESPACO aceitar \r.
-TEST(Separadores, DISABLED_FinalDeLinhaDoWindowsEhSeparador) {
+TEST(Separadores, FinalDeLinhaDoWindowsEhSeparador) {
     std::string erros;
     EXPECT_EQ(codigos("inteiro\r\nx", &erros).size(), 2u);
     EXPECT_EQ(erros, "");
