@@ -2,8 +2,15 @@
 #include <string>
 #include <vector>
 
-// Único ponto dos testes que inclui o cabeçalho de tokens.
+// O scanner (portugolToC.l) usa o cabeçalho gerado pelo Bison. Os testes precisam
+// usar o MESMO cabeçalho, senão os códigos dos tokens divergem.
+// ATENÇÃO: o Bison define macros com os nomes dos tokens (E, OU, NAO...). Inclua os
+// cabeçalhos padrão e o gtest ANTES deste arquivo.
+#if __has_include("PortugolToC.tab.hpp")
+#include "PortugolToC.tab.hpp"
+#else
 #include "portugol/tokens.hpp"
+#endif
 
 struct Token {
     int codigo = 0;
