@@ -11,8 +11,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # flex e necessario desde a integracao do scanner (find_package(FLEX REQUIRED)).
+      # A imagem do runner ja costuma traze-lo, mas declarar evita quebra se ela mudar.
       - name: Instalar dependencias
-        run: sudo apt-get update && sudo apt-get install -y cmake g++
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ flex
 
       - name: Configurar
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
