@@ -78,6 +78,23 @@ lista_itens:
 item:
       declaracao_variavel
     | comando_atribuicao
+    | comando_condicional
+    ;
+
+bloco:
+      ABRE_CHAVE lista_itens FECHA_CHAVE
+    ;
+
+// se (expressao) { ... } senao { ... }
+//
+// O bloco e obrigatorio nos dois lados, entao o dangling-else nao aparece:
+// quando o parser ve o "senao", o bloco anterior ja foi fechado pela chave.
+// A terceira alternativa e o encadeamento "senao se", que evita ter de
+// aninhar um bloco a cada condicao nova.
+comando_condicional:
+      KW_SE ABRE_PAREN expressao FECHA_PAREN bloco
+    | KW_SE ABRE_PAREN expressao FECHA_PAREN bloco KW_SENAO bloco
+    | KW_SE ABRE_PAREN expressao FECHA_PAREN bloco KW_SENAO comando_condicional
     ;
 
 // Declaracoes: inteiro x; real taxa = 1.5; inteiro a, b; inteiro v[10];

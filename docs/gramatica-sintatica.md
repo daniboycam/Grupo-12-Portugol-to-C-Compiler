@@ -68,7 +68,7 @@ comando_escrita       = "escreva", "(", lista_argumentos, ")", ";" ;
 comando_retorno       = "retorne", [ expressao ], ";" ;
 
 comando_condicional   = "se", "(", expressao, ")", bloco,
-                         [ "senao", bloco ] ;
+                         [ "senao", ( bloco | comando_condicional ) ] ;
 comando_enquanto      = "enquanto", "(", expressao, ")", bloco ;
 comando_para          = "para", "(", [ atribuicao_sem_ponto_virgula ], ";",
                          [ expressao ], ";", [ atribuicao_sem_ponto_virgula ],
@@ -86,7 +86,9 @@ Regras e exemplos importantes:
 - `escreva("Total: ", valor + 10, "\n");` aceita **um ou mais** argumentos, separados por vírgula. `escreva();` é inválido, conforme o critério de aceite da issue #32.
 - `retorne;` é sintaticamente permitido; se é válido para determinada função depende de o retorno ser `vazio` (issue #31).
 - `pare;` e `continue;` só devem ocorrer em laços; isso é verificação de contexto, não desta gramática.
-- A gramática usa blocos `{ ... }` nas condicionais. **A issue #19 descreve uma variante `se ... entao ... fimse`, mas `entao` e `fimse` não existem nos tokens do lexer atual.** A equipe deve alinhar a issue #19 antes de implementar condicionais, evitando criar sintaxes incompatíveis.
+- A gramática usa blocos `{ ... }` nas condicionais, e foi essa a forma implementada. A issue #19 descrevia uma variante `se ... entao ... fimse`, mas `entao` e `fimse` não existem nos tokens do lexer, então o grupo optou por manter as chaves, coerentes com o resto do dialeto. O texto da issue ficou desatualizado.
+- Como o bloco é obrigatório nos dois lados, o **dangling-else não ocorre**: quando o parser encontra o `senao`, o bloco anterior já foi fechado pela chave. A gramática gera zero conflitos de shift/reduce, sem precisar de precedência para isso.
+- O `senao` aceita um bloco ou **outra condicional**, o que permite encadear `se ... senao se ... senao`. Sem isso seria preciso aninhar um bloco a cada condição nova.
 
 ## 5. Expressões e precedência
 
@@ -186,11 +188,3 @@ Esses exemplos **não foram executados** contra o parser atual, que ainda não c
 | Condicionais e repetições | `KW_SE`, `KW_SENAO`, `KW_ENQUANTO`, `KW_PARA` | #19, #30 |
 | Nós de expressões, declarações e funções | Ações semânticas no `PortugolToC.y` | #36 |
 
-**Acordos pendentes para revisão da equipe:**
-
-1. Confirmar a aceitação dos dois formatos de arquivo (com ou sem `programa { ... }`).
-2. Decidir se condicionais terão somente blocos `{ ... }` ou se o grupo vai adicionar os tokens `entao` / `fimse` requeridos pela descrição da issue #19.
-3. Definir se vetores, inicializadores e comandos `para` opcionais integram o escopo da P2.
-4. Confirmar se `principal` é obrigatória e onde a validação dessa regra acontecerá.
-
-Concluídos esses alinhamentos, este documento pode ser considerado a especificação de referência para a implementação das produções no Bison.
