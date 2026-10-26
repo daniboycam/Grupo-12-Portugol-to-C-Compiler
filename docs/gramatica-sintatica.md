@@ -188,11 +188,3 @@ Esses exemplos **não foram executados** contra o parser atual, que ainda não c
 | Condicionais e repetições | `KW_SE`, `KW_SENAO`, `KW_ENQUANTO`, `KW_PARA` | #19, #30 |
 | Nós de expressões, declarações e funções | Ações semânticas no `PortugolToC.y` | #36 |
 
-**Acordos pendentes para revisão da equipe:**
-
-1. Confirmar a aceitação dos dois formatos de arquivo (com ou sem `programa { ... }`).
-2. Decidir se condicionais terão somente blocos `{ ... }` ou se o grupo vai adicionar os tokens `entao` / `fimse` requeridos pela descrição da issue #19.
-3. Definir se vetores, inicializadores e comandos `para` opcionais integram o escopo da P2.
-4. Confirmar se `principal` é obrigatória e onde a validação dessa regra acontecerá.
-
-Concluídos esses alinhamentos, este documento pode ser considerado a especificação de referência para a implementação das produções no Bison.
