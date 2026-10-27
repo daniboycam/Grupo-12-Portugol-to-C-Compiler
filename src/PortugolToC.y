@@ -94,6 +94,13 @@ tipo_retorno:
 
 lista_parametros:
       %empty
+    | parametro
+    | lista_parametros VIRGULA parametro
+    ;
+
+parametro:
+      tipo IDENTIFICADOR
+      { delete[] $2; }
     ;
 
 lista_comandos:
