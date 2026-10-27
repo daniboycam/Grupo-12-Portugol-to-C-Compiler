@@ -1,8 +1,11 @@
 %{
 #include <iostream>
+#include <string>
 
 int yylex();
 void yyerror(const char* s);
+
+static bool tem_principal = false;
 %}
 
 %defines
@@ -67,7 +70,19 @@ void yyerror(const char* s);
 // Aceita programa delimitado ou declaracoes/comandos simples no topo.
 programa:
       KW_PROGRAMA ABRE_CHAVE lista_itens FECHA_CHAVE
+        {
+            if (!tem_principal) {
+                yyerror("funcao principal() nao definida");
+                YYABORT;
+            }
+        }
     | lista_itens
+        {
+            if (!tem_principal) {
+                yyerror("funcao principal() nao definida");
+                YYABORT;
+            }
+        }
     ;
 
 lista_itens:
@@ -84,7 +99,10 @@ item:
 funcao:
       KW_FUNCAO tipo_retorno IDENTIFICADOR ABRE_PAREN lista_parametros FECHA_PAREN
       ABRE_CHAVE lista_comandos FECHA_CHAVE
-      { delete[] $3; }
+      {
+          if (std::string($3) == "principal") tem_principal = true;
+          delete[] $3;
+      }
     ;
 
 tipo_retorno:
