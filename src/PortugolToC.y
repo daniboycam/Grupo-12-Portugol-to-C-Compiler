@@ -180,6 +180,7 @@ expressao:
     | KW_VERDADEIRO
     | KW_FALSO
     | acesso
+    | chamada_funcao
     | ABRE_PAREN expressao FECHA_PAREN
     | MAIS expressao          %prec UNARIO_MAIS
     | MENOS expressao         %prec UNARIO_MENOS
@@ -203,6 +204,17 @@ expressao:
     | expressao VEZES expressao
     | expressao DIVIDIDO expressao
     | expressao RESTO expressao
+    ;
+
+chamada_funcao:
+      IDENTIFICADOR ABRE_PAREN lista_argumentos FECHA_PAREN
+      { delete[] $1; }
+    ;
+
+lista_argumentos:
+      %empty
+    | expressao
+    | lista_argumentos VIRGULA expressao
     ;
 
 %%
