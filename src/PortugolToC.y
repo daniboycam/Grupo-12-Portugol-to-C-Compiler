@@ -78,6 +78,32 @@ lista_itens:
 item:
       declaracao_variavel
     | comando_atribuicao
+    | funcao
+    ;
+
+funcao:
+      KW_FUNCAO tipo_retorno IDENTIFICADOR ABRE_PAREN lista_parametros FECHA_PAREN
+      ABRE_CHAVE lista_comandos FECHA_CHAVE
+      { delete[] $3; }
+    ;
+
+tipo_retorno:
+      tipo
+    | KW_VAZIO
+    ;
+
+lista_parametros:
+      %empty
+    ;
+
+lista_comandos:
+      %empty
+    | lista_comandos comando
+    ;
+
+comando:
+      declaracao_variavel
+    | comando_atribuicao
     ;
 
 // Declaracoes: inteiro x; real taxa = 1.5; inteiro a, b; inteiro v[10];
