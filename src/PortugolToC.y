@@ -111,6 +111,12 @@ lista_comandos:
 comando:
       declaracao_variavel
     | comando_atribuicao
+    | comando_retorno
+    ;
+
+comando_retorno:
+      KW_RETORNE expressao PONTO_VIRGULA
+    | KW_RETORNE PONTO_VIRGULA
     ;
 
 // Declaracoes: inteiro x; real taxa = 1.5; inteiro a, b; inteiro v[10];
