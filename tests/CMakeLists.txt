@@ -10,3 +10,11 @@ add_executable(testes_lexico
     lexico/tokens_validos_test.cpp)
 target_link_libraries(testes_lexico PRIVATE portugolc_core GTest::gtest_main)
 gtest_discover_tests(testes_lexico)
+
+add_executable(testes_sintatico
+    sintatico/parser_esqueleto_test.cpp)
+
+target_link_libraries(testes_sintatico
+    PRIVATE portugolc_core GTest::gtest_main)
+
+gtest_discover_tests(testes_sintatico)
