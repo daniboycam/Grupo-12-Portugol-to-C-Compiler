@@ -1,8 +1,10 @@
 %{
 #include <iostream>
+#include <string>
 
 int yylex();
 void yyerror(const char* s);
+extern int yynerrs;
 %}
 
 %defines
@@ -67,7 +69,13 @@ void yyerror(const char* s);
 // Aceita programa delimitado ou declaracoes/comandos simples no topo.
 programa:
       KW_PROGRAMA ABRE_CHAVE lista_itens FECHA_CHAVE
+      {
+          if (yynerrs > 0) YYABORT;
+      }
     | lista_itens
+      {
+          if (yynerrs > 0) YYABORT;
+      }
     ;
 
 lista_itens:
@@ -83,6 +91,10 @@ item:
     | comando_para
     | comando_desvio
     | bloco
+    | error PONTO_VIRGULA
+      {
+          yyerrok;
+      }
     ;
 
 bloco:
@@ -218,7 +230,14 @@ expressao:
 
 %%
 
-void yyerror(const char* s) {
+void yyerror(const char* /*s*/) {
     extern int yylineno;
-    std::cerr << "erro sintatico na linha " << yylineno << ": " << s << "\n";
+    extern char* yytext;
+    std::string tokenInesperado;
+    if (yytext == nullptr || yytext[0] == '\0') {
+        tokenInesperado = "'fim de arquivo'";
+    } else {
+        tokenInesperado = std::string("'") + yytext + "'";
+    }
+    std::cerr << "Erro sintático na linha " << yylineno << ": inesperado " << tokenInesperado << "\n";
 }

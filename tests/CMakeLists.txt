@@ -12,6 +12,7 @@ target_link_libraries(testes_lexico PRIVATE portugolc_core GTest::gtest_main)
 gtest_discover_tests(testes_lexico)
 
 add_executable(testes_sintatico
-    sintatico/lacos_test.cpp)
+    sintatico/lacos_test.cpp
+    sintatico/erros_sintaticos_test.cpp)
 target_link_libraries(testes_sintatico PRIVATE portugolc_core GTest::gtest_main)
 gtest_discover_tests(testes_sintatico)
