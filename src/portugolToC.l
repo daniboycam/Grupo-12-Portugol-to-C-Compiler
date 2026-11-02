@@ -78,7 +78,7 @@ EXPOENTE  [eE][+-]?{DIGITO}+
 REAL      {DIGITO}+"."{DIGITO}+{EXPOENTE}?|{DIGITO}+{EXPOENTE}
 REAL_MAL  {DIGITO}+"."|{DIGITO}+[eE][+-]?
 NUM_MAL   {DIGITO}+({LETRA}|_)({LETRA}|{DIGITO}|_)*
-ESPACO    [ \t]+
+ESPACO    [ \t\r]+
 NOVA_LINHA \n
 COMENTARIO_LINHA "//"[^\n]*
 
