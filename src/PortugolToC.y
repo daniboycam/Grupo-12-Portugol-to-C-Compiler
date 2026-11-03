@@ -78,6 +78,56 @@ lista_itens:
 item:
       declaracao_variavel
     | comando_atribuicao
+    | comando_condicional
+    | comando_enquanto
+    | comando_para
+    | comando_desvio
+    | bloco
+    ;
+
+bloco:
+      ABRE_CHAVE lista_itens FECHA_CHAVE
+    ;
+
+comando_enquanto:
+      KW_ENQUANTO ABRE_PAREN expressao FECHA_PAREN bloco
+    ;
+
+comando_para:
+      KW_PARA ABRE_PAREN inicializacao_para_opcional PONTO_VIRGULA expressao_opcional PONTO_VIRGULA passo_para_opcional FECHA_PAREN bloco
+    ;
+
+inicializacao_para_opcional:
+      %empty
+    | acesso operador_atribuicao expressao
+    | tipo lista_declaradores
+    ;
+
+expressao_opcional:
+      %empty
+    | expressao
+    ;
+
+passo_para_opcional:
+      %empty
+    | acesso operador_atribuicao expressao
+    ;
+
+comando_desvio:
+      KW_PARE PONTO_VIRGULA
+    | KW_CONTINUE PONTO_VIRGULA
+    ;
+
+// se (expressao) { ... } senao { ... }
+//
+// O bloco e obrigatorio nos dois lados, entao o dangling-else nao aparece:
+// quando o parser ve o "senao", o bloco anterior ja foi fechado pela chave.
+// A terceira alternativa e o encadeamento "senao se", que evita ter de
+// aninhar um bloco a cada condicao nova.
+comando_condicional:
+      KW_SE ABRE_PAREN expressao FECHA_PAREN bloco
+    | KW_SE ABRE_PAREN expressao FECHA_PAREN bloco KW_SENAO bloco
+    | KW_SE ABRE_PAREN expressao FECHA_PAREN bloco KW_SENAO comando_condicional
     ;
 
 // Declaracoes: inteiro x; real taxa = 1.5; inteiro a, b; inteiro v[10];
