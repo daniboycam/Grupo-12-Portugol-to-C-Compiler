@@ -187,4 +187,3 @@ Esses exemplos **não foram executados** contra o parser atual, que ainda não c
 | Funções, parâmetros e `retorne` | `KW_FUNCAO`, `KW_RETORNE`, `KW_VAZIO` | #31 |
 | Condicionais e repetições | `KW_SE`, `KW_SENAO`, `KW_ENQUANTO`, `KW_PARA` | #19, #30 |
 | Nós de expressões, declarações e funções | Ações semânticas no `PortugolToC.y` | #36 |
-
