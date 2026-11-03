@@ -11,11 +11,11 @@ include(GoogleTest)
 add_executable(testes_lexico
     lexico/auxiliar_lexer.cpp
     lexico/tokens_validos_test.cpp
-    lexico/erros_lexicos_test.cpp)
+    lexico/erros_lexicos_test.cpp
+    lexico/cobertura_lexica_test.cpp)
 
 target_link_libraries(testes_lexico
     PRIVATE portugolc_core GTest::gtest_main)
-
 gtest_discover_tests(testes_lexico)
 
 add_executable(testes_sintatico
