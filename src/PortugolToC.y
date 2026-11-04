@@ -10,6 +10,11 @@ extern int yynerrs;
 %defines
 %define parse.error detailed
 
+// O yynerrs e global e nao volta a zero entre chamadas do yyparse. Sem este
+// reinicio, a guarda "if (yynerrs > 0) YYABORT" da regra programa faz toda
+// analise seguinte a uma que falhou devolver erro, mesmo com programa correto.
+%initial-action { yynerrs = 0; }
+
 // Tipos de valores semanticos fornecidos pelo Flex (yylval).
 %union {
     char* str;
