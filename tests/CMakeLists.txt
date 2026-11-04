@@ -22,7 +22,8 @@ add_executable(testes_sintatico
     sintatico/lacos_test.cpp
     sintatico/condicionais_test.cpp
     sintatico/parser_esqueleto_test.cpp
-    sintatico/erros_sintaticos_test.cpp)
+    sintatico/erros_sintaticos_test.cpp
+    sintatico/ast_test.cpp)
 
 target_link_libraries(testes_sintatico
     PRIVATE portugolc_core GTest::gtest_main)
