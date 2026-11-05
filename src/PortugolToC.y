@@ -1,12 +1,14 @@
 %{
 #include <iostream>
 #include <string>
-
 #include "portugol/ast.hpp"
 
 int yylex();
 void yyerror(const char* s);
 extern int yynerrs;
+
+static bool tem_funcoes = false;
+static bool tem_principal = false;
 %}
 
 %code requires {
@@ -21,6 +23,8 @@ extern int yynerrs;
 // analise seguinte a uma que falhou devolver erro, mesmo com programa correto.
 %initial-action {
     yynerrs = 0;
+    tem_funcoes = false;
+    tem_principal = false;
     liberarAST(raizAST);
     raizAST = nullptr;
 }
@@ -70,6 +74,7 @@ extern int yynerrs;
 %type <ival> dimensao_opcional
 %type <op>   tipo operador_atribuicao
 %type <no>   comando_atribuicao acesso expressao
+%type <no>   funcao comando_retorno chamada_funcao
 
 // Precedencia: do menor nivel para o maior.
 %right ATRIBUICAO ATRIB_MAIS ATRIB_MENOS ATRIB_VEZES ATRIB_DIVIDIDO ATRIB_RESTO ATRIB_BIT_E ATRIB_BIT_OU ATRIB_BIT_XOU ATRIB_DESLOCA_ESQ ATRIB_DESLOCA_DIR
@@ -98,6 +103,12 @@ extern int yynerrs;
 programa:
       KW_PROGRAMA ABRE_CHAVE lista_itens FECHA_CHAVE
       {
+          if (tem_funcoes && !tem_principal) {
+              yyerror("funcao principal() nao definida");
+              liberarAST($3);
+              raizAST = nullptr;
+              YYABORT;
+          }
           if (yynerrs > 0) {
               liberarAST($3);
               raizAST = nullptr;
@@ -108,6 +119,12 @@ programa:
       }
     | lista_itens
       {
+          if (tem_funcoes && !tem_principal) {
+              yyerror("funcao principal() nao definida");
+              liberarAST($1);
+              raizAST = nullptr;
+              YYABORT;
+          }
           if (yynerrs > 0) {
               liberarAST($1);
               raizAST = nullptr;
@@ -135,10 +152,50 @@ item:
     | comando_enquanto    { $$ = $1; }
     | comando_para        { $$ = $1; }
     | comando_desvio      { $$ = $1; }
+    | comando_retorno     { $$ = $1; }
+    | funcao              { $$ = $1; }
     | bloco               { $$ = $1; }
     | error PONTO_VIRGULA
       {
           yyerrok;
+          $$ = nullptr;
+      }
+    ;
+
+funcao:
+      KW_FUNCAO tipo_retorno IDENTIFICADOR ABRE_PAREN lista_parametros FECHA_PAREN bloco
+      {
+          tem_funcoes = true;
+          if (std::string($3) == "principal") tem_principal = true;
+          delete[] $3;
+          $$ = $7;
+      }
+    ;
+
+tipo_retorno:
+      tipo
+    | KW_VAZIO
+    ;
+
+lista_parametros:
+      %empty
+    | parametro
+    | lista_parametros VIRGULA parametro
+    ;
+
+parametro:
+      tipo IDENTIFICADOR
+      { delete[] $2; }
+    ;
+
+comando_retorno:
+      KW_RETORNE expressao PONTO_VIRGULA
+      {
+          liberarAST($2);
+          $$ = nullptr;
+      }
+    | KW_RETORNE PONTO_VIRGULA
+      {
           $$ = nullptr;
       }
     ;
@@ -297,6 +354,7 @@ expressao:
     | KW_VERDADEIRO           { $$ = criarNoLogico(true); }
     | KW_FALSO                { $$ = criarNoLogico(false); }
     | acesso                  { $$ = $1; }
+    | chamada_funcao          { $$ = $1; }
     | ABRE_PAREN expressao FECHA_PAREN { $$ = $2; }
     | MAIS expressao          %prec UNARIO_MAIS  { $$ = criarNoOpUnaria("+", $2); }
     | MENOS expressao         %prec UNARIO_MENOS { $$ = criarNoOpUnaria("-", $2); }
@@ -322,9 +380,25 @@ expressao:
     | expressao RESTO expressao       { $$ = criarNoOp("%", $1, $3); }
     ;
 
+chamada_funcao:
+      IDENTIFICADOR ABRE_PAREN lista_argumentos FECHA_PAREN
+      {
+          $$ = criarNoId($1);
+          delete[] $1;
+      }
+    ;
+
+lista_argumentos:
+      %empty
+    | expressao
+      { liberarAST($1); }
+    | lista_argumentos VIRGULA expressao
+      { liberarAST($3); }
+    ;
+
 %%
 
-void yyerror(const char* /*s*/) {
+void yyerror(const char* s) {
     extern int yylineno;
     extern char* yytext;
     if (raizAST != nullptr) {
@@ -337,5 +411,9 @@ void yyerror(const char* /*s*/) {
     } else {
         tokenInesperado = std::string("'") + yytext + "'";
     }
-    std::cerr << "Erro sintático na linha " << yylineno << ": inesperado " << tokenInesperado << "\n";
+    if (s != nullptr && std::string(s).find("syntax error") == std::string::npos && std::string(s) != "erro sintático" && std::string(s) != "Erro sintático") {
+        std::cerr << "Erro sintático na linha " << yylineno << ": " << s << "\n";
+    } else {
+        std::cerr << "Erro sintático na linha " << yylineno << ": inesperado " << tokenInesperado << "\n";
+    }
 }
