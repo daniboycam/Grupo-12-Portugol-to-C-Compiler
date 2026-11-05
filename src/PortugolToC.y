@@ -74,7 +74,7 @@ static bool tem_principal = false;
 %type <ival> dimensao_opcional
 %type <op>   tipo operador_atribuicao
 %type <no>   comando_atribuicao acesso expressao
-%type <no>   funcao comando_retorno chamada_funcao
+%type <no>   funcao comando_retorno chamada_funcao comando_leia comando_escreva
 
 // Precedencia: do menor nivel para o maior.
 %right ATRIBUICAO ATRIB_MAIS ATRIB_MENOS ATRIB_VEZES ATRIB_DIVIDIDO ATRIB_RESTO ATRIB_BIT_E ATRIB_BIT_OU ATRIB_BIT_XOU ATRIB_DESLOCA_ESQ ATRIB_DESLOCA_DIR
@@ -153,6 +153,8 @@ item:
     | comando_para        { $$ = $1; }
     | comando_desvio      { $$ = $1; }
     | comando_retorno     { $$ = $1; }
+    | comando_leia        { $$ = $1; }
+    | comando_escreva     { $$ = $1; }
     | funcao              { $$ = $1; }
     | bloco               { $$ = $1; }
     | error PONTO_VIRGULA
@@ -187,7 +189,6 @@ parametro:
       tipo IDENTIFICADOR
       { delete[] $2; }
     ;
-
 comando_retorno:
       KW_RETORNE expressao PONTO_VIRGULA
       {
@@ -261,6 +262,33 @@ comando_condicional:
       { $$ = criarNoSe($3, $5, $7); }
     | KW_SE ABRE_PAREN expressao FECHA_PAREN bloco KW_SENAO comando_condicional
       { $$ = criarNoSe($3, $5, $7); }
+    ;
+
+// Leitura: leia(<variavel>);  (<variavel> e um acesso, com ou sem indice)
+comando_leia:
+      KW_LEIA ABRE_PAREN acesso FECHA_PAREN PONTO_VIRGULA
+      {
+          liberarAST($3);
+          $$ = nullptr;
+      }
+    ;
+
+// Escrita: escreva(<lista_expressoes>);
+// Aceita strings literais, numeros, variaveis, expressoes e chamadas de
+// funcao como argumentos, separados por virgula. Pelo menos um argumento
+// e obrigatorio (lista_expressoes_escrita nao tem alternativa vazia).
+comando_escreva:
+      KW_ESCREVA ABRE_PAREN lista_expressoes_escrita FECHA_PAREN PONTO_VIRGULA
+      {
+          $$ = nullptr;
+      }
+    ;
+
+lista_expressoes_escrita:
+      expressao
+      { liberarAST($1); }
+    | lista_expressoes_escrita VIRGULA expressao
+      { liberarAST($3); }
     ;
 
 // Declaracoes: inteiro x; real taxa = 1.5; inteiro a, b; inteiro v[10];
