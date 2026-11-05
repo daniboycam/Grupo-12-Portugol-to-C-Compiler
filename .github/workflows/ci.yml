@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, devel]
   pull_request:
 
 jobs:
@@ -11,13 +11,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # flex e necessario desde a integracao do scanner (find_package(FLEX REQUIRED)).
-      # A imagem do runner ja costuma traze-lo, mas declarar evita quebra se ela mudar.
       - name: Instalar dependencias
-        run: sudo apt-get update && sudo apt-get install -y cmake g++ flex
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ flex bison
 
       - name: Configurar
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
 
       - name: Compilar
         run: cmake --build build --parallel
+
+      - name: Testar
+        run: ctest --test-dir build --output-on-failure --no-tests=error -j "$(nproc)"
