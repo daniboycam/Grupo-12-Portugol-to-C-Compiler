@@ -17,11 +17,14 @@
 // O guarda YYSTYPE_IS_DECLARED e o que o proprio Bison usa, entao quando o
 // cabecalho gerado existir esta definicao simplesmente nao entra.
 #if !defined(YYSTYPE) && !defined(YYSTYPE_IS_DECLARED)
+struct NoAST;
 union YYSTYPE {
-    char* str;   ///< lexema de identificadores e conteudo de cadeias (new[], liberado por quem consome)
-    int ival;    ///< valor de um literal inteiro
-    double fval; ///< valor de um literal real
-    char cval;   ///< valor de um literal caracter
+    char* str;         ///< lexema de identificadores e conteudo de cadeias (new[], liberado por quem consome)
+    int ival;          ///< valor de um literal inteiro
+    double fval;       ///< valor de um literal real
+    char cval;         ///< valor de um literal caracter
+    const char* op;    ///< nome de tipo ou operador de atribuicao (literal estatico)
+    struct NoAST* no;  ///< ponteiro para no da Arvore Sintatica Abstrata (AST)
 };
 #define YYSTYPE_IS_DECLARED 1
 #endif
