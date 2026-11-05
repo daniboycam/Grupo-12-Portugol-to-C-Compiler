@@ -131,6 +131,7 @@ comando:
     | comando_atribuicao
     | comando_retorno
     | comando_leia
+    | comando_escreva
     ;
 
 comando_retorno:
@@ -141,6 +142,19 @@ comando_retorno:
 // Leitura: leia(<variavel>);  (<variavel> e um acesso, com ou sem indice)
 comando_leia:
       KW_LEIA ABRE_PAREN acesso FECHA_PAREN PONTO_VIRGULA
+    ;
+
+// Escrita: escreva(<lista_expressoes>);
+// Aceita strings literais, numeros, variaveis, expressoes e chamadas de
+// funcao como argumentos, separados por virgula. Pelo menos um argumento
+// e obrigatorio (lista_expressoes_escrita nao tem alternativa vazia).
+comando_escreva:
+      KW_ESCREVA ABRE_PAREN lista_expressoes_escrita FECHA_PAREN PONTO_VIRGULA
+    ;
+
+lista_expressoes_escrita:
+      expressao
+    | lista_expressoes_escrita VIRGULA expressao
     ;
 
 // Declaracoes: inteiro x; real taxa = 1.5; inteiro a, b; inteiro v[10];
