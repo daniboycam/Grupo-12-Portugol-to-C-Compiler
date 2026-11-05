@@ -243,3 +243,15 @@ TEST(Scanner, PodeSerReutilizadoEntreEntradas) {
     EXPECT_EQ(tokenizar("se").size(), 1u);
     EXPECT_EQ(tokenizar("senao").size(), 1u);
 }
+
+TEST(ErroLexicoColuna, ColunaContaCaracteresEmVezDeBytes) {
+    // "escreva(\"olá\") @" — o @ e o 16o caractere da linha. O á ocupa
+    // 2 bytes em UTF-8, mas 1 caractere.
+    std::string erros;
+    tokenizar("escreva(\"olá\") @", &erros);
+
+    EXPECT_NE(erros.find("Coluna 16"), std::string::npos)
+        << "coluna esperada 16, obtido: " << erros;
+    EXPECT_EQ(erros.find("Coluna 17"), std::string::npos)
+        << "coluna saiu em bytes (17), nao em caracteres: " << erros;
+}
