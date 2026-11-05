@@ -11,7 +11,7 @@ extern void yy_delete_buffer(YY_BUFFER_STATE buffer);
 
 std::vector<Token> tokenizar(const std::string& fonte, std::string* erros) {
     yylineno = 1;                                  // yy_scan_string não reinicia a contagem
-    yycolumn = 1;
+    yycolumn = 1;                                  // reinicia a coluna
     testing::internal::CaptureStderr();            // erros léxicos saem em cerr
     YY_BUFFER_STATE buf = yy_scan_string(fonte.c_str());
 

@@ -362,3 +362,43 @@ Tokens produzidos (o comentário é descartado):
 | 18 | FIM_ARQUIVO | — | 5:1 |
 
 Linha e coluna começam em 1, e a coluna é contada em caracteres.
+
+## Contagem de linha e coluna
+
+- Linha e coluna começam em **1**.
+- A coluna avança por **caractere**, não por byte, mesmo com entrada UTF-8.
+
+### Implementação
+
+Em `src/portugolToC.l`, a coluna é atualizada pela macro `YY_USER_ACTION` usando a função `contarCaracteres`:
+
+```c
+static int contarCaracteres(const char* texto, int bytes) {
+    int n = 0;
+    for (int i = 0; i < bytes; ++i)
+        if ((static_cast<unsigned char>(texto[i]) & 0xC0) != 0x80) ++n;
+    return n;
+}
+
+#define YY_USER_ACTION \
+    colunaToken = yycolumn; \
+    yycolumn += contarCaracteres(yytext, yyleng);
+```
+
+A função ignora os bytes de continuação UTF-8 (padrão `10xxxxxx`) e conta apenas os bytes iniciais de cada caractere. Isso faz com que o `yyleng` (bytes) não "estique" a coluna para a direita em letras acentuadas.
+
+### Exemplo
+
+Entrada:
+```text
+escreva("olá") @
+```
+
+O `@` é o 16º caractere. Antes da correção, a mensagem indicava Coluna 17, pois o `á` (2 bytes) avançava a contagem duas posições. Com a correção:
+```text
+Erro léxico [Linha 1, Coluna 16]: caractere inesperado '@'
+```
+
+### Fora de escopo
+
+Fora de cadeias, uma letra acentuada ainda gera um erro por byte, porque a regra `.` casa byte a byte. O tratamento para exibir o caractere completo nesse caso será feito em issue separada.

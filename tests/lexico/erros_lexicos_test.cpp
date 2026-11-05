@@ -156,7 +156,7 @@ TEST(ErroLexicoUtf8, AcentoForaDeCadeiaGeraErro) {
 // A gramática conta a coluna em caracteres, mas o scanner avança yycolumn por yyleng (bytes):
 // depois de "á" a coluna sai 1 a mais (esperado 16, obtido 17).
 // TODO(#50): reabilitar quando a coluna contar caracteres UTF-8.
-TEST(ErroLexicoColuna, DISABLED_ColunaContaCaracteresEmVezDeBytes) {
+TEST(ErroLexicoColuna, ColunaContaCaracteresEmVezDeBytes) {
     std::string erros;
     tokenizar("escreva(\"olá\") @", &erros);
     EXPECT_EQ(erros, erro(1, 16, "caractere inesperado '@'"));
