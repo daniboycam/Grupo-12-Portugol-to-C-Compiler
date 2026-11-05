@@ -28,6 +28,15 @@ static char* duplicarLexema(const char* texto) {
     return copia;
 }
 
+// Conta caracteres em uma sequencia UTF-8: os bytes de continuacao
+// (padrao 10xxxxxx) nao incrementam a contagem.
+static int contarCaracteres(const char* texto, int bytes) {
+    int n = 0;
+    for (int i = 0; i < bytes; ++i)
+        if ((static_cast<unsigned char>(texto[i]) & 0xC0) != 0x80) ++n;
+    return n;
+}
+
 static string conteudo;
 int yycolumn = 1;
 static int colunaToken = 1;
@@ -56,7 +65,7 @@ static void erroLexico(const string& mensagem) {
 
 #define YY_USER_ACTION \
     colunaToken = yycolumn; \
-    yycolumn += yyleng;
+    yycolumn += contarCaracteres(yytext, yyleng);
 %}
 
 %option noyywrap
