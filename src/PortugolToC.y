@@ -130,11 +130,17 @@ comando:
       declaracao_variavel
     | comando_atribuicao
     | comando_retorno
+    | comando_leia
     ;
 
 comando_retorno:
       KW_RETORNE expressao PONTO_VIRGULA
     | KW_RETORNE PONTO_VIRGULA
+    ;
+
+// Leitura: leia(<variavel>);  (<variavel> e um acesso, com ou sem indice)
+comando_leia:
+      KW_LEIA ABRE_PAREN acesso FECHA_PAREN PONTO_VIRGULA
     ;
 
 // Declaracoes: inteiro x; real taxa = 1.5; inteiro a, b; inteiro v[10];
