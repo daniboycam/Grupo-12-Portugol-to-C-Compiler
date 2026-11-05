@@ -3,12 +3,19 @@
 #include <string>
 #include "portugol/ast.hpp"
 
+#include "portugol/tabela.hpp"
+
 int yylex();
 void yyerror(const char* s);
 extern int yynerrs;
+extern int yylineno;
 
 static bool tem_funcoes = false;
 static bool tem_principal = false;
+static int  num_erros_semanticos = 0;
+
+// Tipo da ultima declaracao reduzida em 'tipo:'; usado por 'declarador:'.
+static std::string tipoCorrente;
 %}
 
 %code requires {
@@ -25,6 +32,9 @@ static bool tem_principal = false;
     yynerrs = 0;
     tem_funcoes = false;
     tem_principal = false;
+    num_erros_semanticos = 0;
+    tipoCorrente.clear();
+    portugol::tabela.limpar();
     liberarAST(raizAST);
     raizAST = nullptr;
 }
@@ -109,6 +119,11 @@ programa:
               raizAST = nullptr;
               YYABORT;
           }
+          if (num_erros_semanticos > 0) {
+              liberarAST($3);
+              raizAST = nullptr;
+              YYABORT;
+          }
           if (yynerrs > 0) {
               liberarAST($3);
               raizAST = nullptr;
@@ -121,6 +136,11 @@ programa:
       {
           if (tem_funcoes && !tem_principal) {
               yyerror("funcao principal() nao definida");
+              liberarAST($1);
+              raizAST = nullptr;
+              YYABORT;
+          }
+          if (num_erros_semanticos > 0) {
               liberarAST($1);
               raizAST = nullptr;
               YYABORT;
@@ -301,11 +321,11 @@ declaracao_variavel:
     ;
 
 tipo:
-      KW_INTEIRO  { $$ = "inteiro"; }
-    | KW_REAL     { $$ = "real"; }
-    | KW_CADEIA   { $$ = "cadeia"; }
-    | KW_CARACTER { $$ = "caracter"; }
-    | KW_LOGICO   { $$ = "logico"; }
+      KW_INTEIRO  { tipoCorrente = "inteiro";  $$ = "inteiro"; }
+    | KW_REAL     { tipoCorrente = "real";     $$ = "real"; }
+    | KW_CADEIA   { tipoCorrente = "cadeia";   $$ = "cadeia"; }
+    | KW_CARACTER { tipoCorrente = "caracter"; $$ = "caracter"; }
+    | KW_LOGICO   { tipoCorrente = "logico";   $$ = "logico"; }
     ;
 
 lista_declaradores:
@@ -321,6 +341,12 @@ lista_declaradores:
 declarador:
       IDENTIFICADOR dimensao_opcional inicializacao_opcional
       {
+          if (!portugol::tabela.inserirSimbolo($1, tipoCorrente, yylineno)) {
+              std::cerr << "erro semantico na linha " << yylineno
+                        << ": identificador '" << $1
+                        << "' ja declarado no mesmo escopo\n";
+              ++num_erros_semanticos;
+          }
           $$ = criarNoDeclarador($1, $2, $3);
           delete[] $1;
       }

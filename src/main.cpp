@@ -5,6 +5,7 @@
 #include <string>
 
 #include "PortugolToC.tab.hpp"
+#include "portugol/tabela.hpp"
 #include "portugol/ast.hpp"
 
 extern int yylex();
@@ -139,7 +140,9 @@ int listarTokens() {
 
 // Modo padrao: entrega os tokens ao parser e exibe a AST gerada.
 int analisar() {
-    if (yyparse() != 0) {
+    const int rc = yyparse();
+    portugol::tabela.imprimirTabela();
+    if (rc != 0) {
         liberarAST(raizAST);
         raizAST = nullptr;
         std::cerr << "Falha na analise sintatica.\n";
