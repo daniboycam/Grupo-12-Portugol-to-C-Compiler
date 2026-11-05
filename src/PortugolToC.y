@@ -2,10 +2,17 @@
 #include <iostream>
 #include <string>
 
+#include "portugol/tabela.hpp"
+
 int yylex();
 void yyerror(const char* s);
+extern int yylineno;
 
 static bool tem_principal = false;
+static int  num_erros_semanticos = 0;
+
+// Tipo da ultima declaracao reduzida em 'tipo:'; usado por 'declarador:'.
+static std::string tipoCorrente;
 %}
 
 %defines
@@ -75,11 +82,17 @@ programa:
                 yyerror("funcao principal() nao definida");
                 YYABORT;
             }
+            if (num_erros_semanticos > 0) {
+                YYABORT;
+            }
         }
     | lista_itens
         {
             if (!tem_principal) {
                 yyerror("funcao principal() nao definida");
+                YYABORT;
+            }
+            if (num_erros_semanticos > 0) {
                 YYABORT;
             }
         }
@@ -163,11 +176,11 @@ declaracao_variavel:
     ;
 
 tipo:
-      KW_INTEIRO
-    | KW_REAL
-    | KW_CADEIA
-    | KW_CARACTER
-    | KW_LOGICO
+      KW_INTEIRO    { tipoCorrente = "inteiro";  }
+    | KW_REAL       { tipoCorrente = "real";     }
+    | KW_CADEIA     { tipoCorrente = "cadeia";   }
+    | KW_CARACTER   { tipoCorrente = "caracter"; }
+    | KW_LOGICO     { tipoCorrente = "logico";   }
     ;
 
 lista_declaradores:
@@ -177,7 +190,15 @@ lista_declaradores:
 
 declarador:
       IDENTIFICADOR dimensao_opcional inicializacao_opcional
-      { delete[] $1; }
+      {
+          if (!portugol::tabela.inserirSimbolo($1, tipoCorrente, yylineno)) {
+              std::cerr << "erro semantico na linha " << yylineno
+                        << ": identificador '" << $1
+                        << "' ja declarado no mesmo escopo\n";
+              ++num_erros_semanticos;
+          }
+          delete[] $1;
+      }
     ;
 
 dimensao_opcional:
@@ -258,6 +279,5 @@ lista_argumentos:
 %%
 
 void yyerror(const char* s) {
-    extern int yylineno;
     std::cerr << "erro sintatico na linha " << yylineno << ": " << s << "\n";
 }
