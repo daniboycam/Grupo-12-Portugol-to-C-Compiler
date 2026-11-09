@@ -41,6 +41,30 @@ std::string escaparTexto(const std::string& s) {
     return resultado;
 }
 
+// Move os filhos de um no-lista para o no de destino e libera so o no-lista,
+// sem os filhos, que agora pertencem ao destino.
+void absorverFilhos(NoAST* destino, NoAST* lista) {
+    if (lista == nullptr) {
+        return;
+    }
+    for (NoAST* filho : lista->filhos) {
+        destino->filhos.push_back(filho);
+    }
+    lista->filhos.clear();
+    liberarAST(lista);
+}
+
+std::string juntar(const std::vector<NoAST*>& nos, const std::string& separador) {
+    std::string resultado;
+    for (size_t i = 0; i < nos.size(); ++i) {
+        if (i > 0) {
+            resultado += separador;
+        }
+        resultado += astParaString(nos[i], 0);
+    }
+    return resultado;
+}
+
 }  // namespace
 
 NoAST* criarNoNum(int valor) {
@@ -183,6 +207,54 @@ NoAST* criarNoDesvio(TipoNo tipo) {
     return no;
 }
 
+NoAST* criarNoFuncao(const std::string& tipoRetorno, const std::string& nome,
+                     NoAST* parametros, NoAST* corpo) {
+    NoAST* no = new NoAST();
+    no->tipo = NO_FUNCAO;
+    no->op = tipoRetorno;
+    no->nome = nome;
+    absorverFilhos(no, parametros);
+    no->dir = corpo;
+    return no;
+}
+
+NoAST* criarNoParametro(const std::string& tipo, const std::string& nome) {
+    NoAST* no = new NoAST();
+    no->tipo = NO_PARAMETRO;
+    no->op = tipo;
+    no->nome = nome;
+    return no;
+}
+
+NoAST* criarNoChamada(const std::string& nome, NoAST* argumentos) {
+    NoAST* no = new NoAST();
+    no->tipo = NO_CHAMADA;
+    no->nome = nome;
+    absorverFilhos(no, argumentos);
+    return no;
+}
+
+NoAST* criarNoRetorne(NoAST* expressao) {
+    NoAST* no = new NoAST();
+    no->tipo = NO_RETORNE;
+    no->esq = expressao;
+    return no;
+}
+
+NoAST* criarNoLeia(NoAST* destino) {
+    NoAST* no = new NoAST();
+    no->tipo = NO_LEIA;
+    no->esq = destino;
+    return no;
+}
+
+NoAST* criarNoEscreva(NoAST* argumentos) {
+    NoAST* no = new NoAST();
+    no->tipo = NO_ESCREVA;
+    absorverFilhos(no, argumentos);
+    return no;
+}
+
 void adicionarFilho(NoAST* pai, NoAST* filho) {
     if (pai != nullptr && filho != nullptr) {
         pai->filhos.push_back(filho);
@@ -252,6 +324,36 @@ std::string astParaString(const NoAST* raiz, int nivel) {
         case NO_ATRIBUICAO:
             return recuo + "(" + raiz->op + " " + astParaString(raiz->esq, 0) +
                    " " + astParaString(raiz->dir, 0) + ")";
+
+        case NO_PARAMETRO:
+            return recuo + raiz->op + " " + raiz->nome;
+
+        case NO_CHAMADA:
+            if (raiz->filhos.empty()) {
+                return recuo + "(chamada " + raiz->nome + ")";
+            }
+            return recuo + "(chamada " + raiz->nome + " " + juntar(raiz->filhos, " ") + ")";
+
+        case NO_RETORNE:
+            if (raiz->esq == nullptr) {
+                return recuo + "(retorne)";
+            }
+            return recuo + "(retorne " + astParaString(raiz->esq, 0) + ")";
+
+        case NO_LEIA:
+            return recuo + "(leia " + astParaString(raiz->esq, 0) + ")";
+
+        case NO_ESCREVA:
+            return recuo + "(escreva " + juntar(raiz->filhos, " ") + ")";
+
+        case NO_FUNCAO: {
+            std::ostringstream oss;
+            oss << recuo << "(funcao " << raiz->op << " " << raiz->nome
+                << " (" << juntar(raiz->filhos, ", ") << ")\n";
+            oss << astParaString(raiz->dir, nivel + 1) << "\n";
+            oss << recuo << ")";
+            return oss.str();
+        }
 
         case NO_PARE:
             return recuo + "(pare)";
