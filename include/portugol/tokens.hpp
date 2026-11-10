@@ -33,6 +33,16 @@ union YYSTYPE {
 // define esta variavel enquanto nao ha Bison (ver portugolToC.l).
 extern YYSTYPE yylval;
 
+/// Avanca a leitura na entrada atual (yyin) e retorna o codigo do proximo token,
+/// ou 0 ao chegar ao fim do arquivo. Para tokens com carga semantica
+/// (IDENTIFICADOR, NUM_INT, NUM_REAL, LIT_STRING, LIT_CHAR), preenche yylval.
+int yylex();
+
+/// Linha (1-indexada) e coluna (1-indexada, em caracteres UTF-8) mantidas pelo
+/// analisador lexico durante a varredura.
+extern int yylineno;
+extern int yycolumn;
+
 enum TipoToken {
     // Estrutura
     KW_PROGRAMA = 258,
