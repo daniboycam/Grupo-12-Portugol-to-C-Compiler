@@ -17,11 +17,14 @@
 // O guarda YYSTYPE_IS_DECLARED e o que o proprio Bison usa, entao quando o
 // cabecalho gerado existir esta definicao simplesmente nao entra.
 #if !defined(YYSTYPE) && !defined(YYSTYPE_IS_DECLARED)
+struct NoAST;
 union YYSTYPE {
-    char* str;   ///< lexema de identificadores e conteudo de cadeias (new[], liberado por quem consome)
-    int ival;    ///< valor de um literal inteiro
-    double fval; ///< valor de um literal real
-    char cval;   ///< valor de um literal caracter
+    char* str;         ///< lexema de identificadores e conteudo de cadeias (new[], liberado por quem consome)
+    int ival;          ///< valor de um literal inteiro
+    double fval;       ///< valor de um literal real
+    char cval;         ///< valor de um literal caracter
+    const char* op;    ///< nome de tipo ou operador de atribuicao (literal estatico)
+    struct NoAST* no;  ///< ponteiro para no da Arvore Sintatica Abstrata (AST)
 };
 #define YYSTYPE_IS_DECLARED 1
 #endif
@@ -29,6 +32,16 @@ union YYSTYPE {
 // Valor semantico do token que o scanner acabou de reconhecer. O scanner e quem
 // define esta variavel enquanto nao ha Bison (ver portugolToC.l).
 extern YYSTYPE yylval;
+
+/// Avanca a leitura na entrada atual (yyin) e retorna o codigo do proximo token,
+/// ou 0 ao chegar ao fim do arquivo. Para tokens com carga semantica
+/// (IDENTIFICADOR, NUM_INT, NUM_REAL, LIT_STRING, LIT_CHAR), preenche yylval.
+int yylex();
+
+/// Linha (1-indexada) e coluna (1-indexada, em caracteres UTF-8) mantidas pelo
+/// analisador lexico durante a varredura.
+extern int yylineno;
+extern int yycolumn;
 
 enum TipoToken {
     // Estrutura
