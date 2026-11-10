@@ -20,7 +20,16 @@ YYSTYPE yylval;
 
 using namespace std;
 
-// Copia o lexema para memoria propria
+// Interface publica exportada pelo scanner gerado pelo Flex:
+// - int yylex(): avanca a leitura em yyin e retorna o codigo do proximo token
+//   (ou 0 ao atingir EOF). Preenche yylval para tokens com valor semantico.
+// - FILE* yyin: fluxo de entrada lido pelo scanner (padrao: stdin).
+// - char* yytext / int yyleng: lexema bruto e comprimento em bytes do token.
+// - int yylineno: linha corrente (1-indexada, mantida por %option yylineno).
+// - int yycolumn: coluna do proximo caractere a ser lido na linha corrente.
+
+/// Aloca uma copia em heap do lexema reconhecido para entrega via yylval.str.
+/// A posse do buffer (delete[]) passa para quem consome o token (parser/driver).
 static char* duplicarLexema(const char* texto) {
     const size_t tamanho = strlen(texto) + 1;
     char* copia = new char[tamanho];
@@ -28,8 +37,8 @@ static char* duplicarLexema(const char* texto) {
     return copia;
 }
 
-// Conta caracteres em uma sequencia UTF-8: os bytes de continuacao
-// (padrao 10xxxxxx) nao incrementam a contagem.
+/// Conta caracteres (codepoints) em uma sequencia UTF-8: bytes de continuacao
+/// (padrao 10xxxxxx) nao incrementam a contagem.
 static int contarCaracteres(const char* texto, int bytes) {
     int n = 0;
     for (int i = 0; i < bytes; ++i)
@@ -37,12 +46,23 @@ static int contarCaracteres(const char* texto, int bytes) {
     return n;
 }
 
+/// Acumulador para montar o conteudo de literais de cadeia e caracter nos
+/// estados exclusivos STRING e CHAR.
 static string conteudo;
+
+/// Coluna corrente (1-indexada, em caracteres UTF-8) do cursor de leitura.
 int yycolumn = 1;
+
+/// Coluna onde comecou o token atual (atualizada antes de cada acao por YY_USER_ACTION).
 static int colunaToken = 1;
+
+/// Linha e coluna de abertura de um literal ou comentario de bloco, usadas
+/// para reportar a posicao de inicio caso nao seja fechado.
 static int linhaLiteral = 0;
 static int colunaLiteral = 0;
 
+/// Converte o caractere identificador de uma sequencia de escape (\n, \t, \\,
+/// \", \', \0) para seu valor correspondente. Retorna 0 para escapes invalidos.
 static char valorEscape(char letra) {
     switch (letra) {
         case 'n':  return '\n';
@@ -55,14 +75,18 @@ static char valorEscape(char letra) {
     }
 }
 
+/// Emite em stderr uma mensagem padronizada de erro lexico na linha e coluna informadas.
 static void erroLexicoNaPosicao(int linha, int coluna, const string& mensagem) {
     cerr << "Erro léxico [Linha " << linha << ", Coluna " << coluna << "]: " << mensagem << "\n";
 }
 
+/// Emite em stderr um erro lexico na posicao (yylineno, colunaToken) do token atual.
 static void erroLexico(const string& mensagem) {
     erroLexicoNaPosicao(yylineno, colunaToken, mensagem);
 }
 
+/// Executado antes de cada acao do Flex: registra a coluna inicial do token e
+/// avanca yycolumn pela quantidade de caracteres UTF-8 do lexema lido.
 #define YY_USER_ACTION \
     colunaToken = yycolumn; \
     yycolumn += contarCaracteres(yytext, yyleng);

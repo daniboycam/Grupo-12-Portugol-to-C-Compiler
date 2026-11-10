@@ -10,10 +10,11 @@ Compilador de **Portugol** para **C++**, desenvolvido na disciplina de Compilado
 ## Estrutura do projeto
 
 ```
-docs/               documentacao e especificacoes
-include/portugol/   cabecalhos publicos
+docs/               documentacao e especificacoes das gramaticas (lexica e sintatica)
+examples/           programas de exemplo em Portugol (.por)
+include/portugol/   cabecalhos publicos (tokens, AST e tabela de simbolos)
 src/                implementacao (C++, Flex e Bison)
-tests/              testes automatizados
+tests/              testes automatizados (lexico, sintatico e integracao)
 ```
 
 ## Compilando
@@ -35,7 +36,36 @@ Os dois caminhos geram o binario em `build/portugolc`.
 
 ## Usando
 
-Modo scanner, que lista os tokens reconhecidos pelo analisador lexico:
+### Analise sintatica, Tabela de Simbolos e AST (modo padrao)
+
+Sem `--tokens`, o compilador executa a analise lexica e sintatica completa, exibe a Tabela de Simbolos e imprime a Arvore Sintatica Abstrata (AST) em formato S-expression:
+
+```bash
+./build/portugolc examples/condicional.por
+```
+
+```
+===== Tabela de Simbolos =====
+nome	tipo	linha
+nota	inteiro	3
+conceito	cadeia	4
+==============================
+Analise sintatica concluida com sucesso.
+(programa
+  (decl inteiro (nota = 75))
+  (decl cadeia (conceito = ""))
+  (se (>= nota 90)
+    (bloco
+      (= conceito "A")
+    )
+    ...
+  )
+)
+```
+
+### Modo scanner (`--tokens`)
+
+Com `-t` ou `--tokens`, o programa percorre a entrada apenas com o analisador lexico e lista os tokens reconhecidos:
 
 ```bash
 ./build/portugolc --tokens examples/exemplo.por
@@ -49,8 +79,28 @@ LINHA   TOKEN                 LEXEMA
 ...
 ```
 
-Sem `--tokens`, o programa entrega os tokens ao analisador sintatico. Sem
-arquivo, le da entrada padrao. `--ajuda` mostra as opcoes.
+Sem arquivo, le da entrada padrao. `-h` ou `--ajuda` mostra as opcoes.
+
+## Executando os testes
+
+Apos compilar com CMake, execute a suite de testes automatizados (GoogleTest / CTest):
+
+```bash
+ctest --test-dir build --output-on-failure
+```
+
+Ou via Makefile:
+
+```bash
+make test
+```
+
+## Documentacao
+
+- [Gramatica Lexica](docs/gramatica-lexica.md)
+- [Gramatica Sintatica](docs/gramatica-sintatica.md)
+- [Subprogramas e Modularizacao](docs/gramatica-subprogramas.md)
+- [Comandos de Entrada e Saida](docs/comando-io.md)
 
 ## Requisitos
 
