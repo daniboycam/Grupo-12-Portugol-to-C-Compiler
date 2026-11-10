@@ -85,6 +85,9 @@ static std::string tipoCorrente;
 %type <op>   tipo operador_atribuicao
 %type <no>   comando_atribuicao acesso expressao
 %type <no>   funcao comando_retorno chamada_funcao comando_leia comando_escreva
+%type <no>   comando_chamada parametro lista_parametros parametros
+%type <no>   lista_argumentos argumentos lista_expressoes_escrita
+%type <op>   tipo_retorno
 
 // Precedencia: do menor nivel para o maior.
 %right ATRIBUICAO ATRIB_MAIS ATRIB_MENOS ATRIB_VEZES ATRIB_DIVIDIDO ATRIB_RESTO ATRIB_BIT_E ATRIB_BIT_OU ATRIB_BIT_XOU ATRIB_DESLOCA_ESQ ATRIB_DESLOCA_DIR
@@ -175,6 +178,7 @@ item:
     | comando_retorno     { $$ = $1; }
     | comando_leia        { $$ = $1; }
     | comando_escreva     { $$ = $1; }
+    | comando_chamada     { $$ = $1; }
     | funcao              { $$ = $1; }
     | bloco               { $$ = $1; }
     | error PONTO_VIRGULA
@@ -189,36 +193,49 @@ funcao:
       {
           tem_funcoes = true;
           if (std::string($3) == "principal") tem_principal = true;
+          $$ = criarNoFuncao($2, $3, $5, $7);
           delete[] $3;
-          $$ = $7;
       }
     ;
 
 tipo_retorno:
-      tipo
-    | KW_VAZIO
+      tipo     { $$ = $1; }
+    | KW_VAZIO { $$ = "vazio"; }
     ;
 
+// A lista vazia fica separada da nao vazia para que "f(, inteiro a)" nao seja
+// aceito: a virgula so aparece entre dois parametros.
 lista_parametros:
-      %empty
-    | parametro
-    | lista_parametros VIRGULA parametro
+      %empty     { $$ = criarNoBloco(); }
+    | parametros { $$ = $1; }
+    ;
+
+parametros:
+      parametro
+      {
+          $$ = criarNoBloco();
+          adicionarFilho($$, $1);
+      }
+    | parametros VIRGULA parametro
+      {
+          adicionarFilho($1, $3);
+          $$ = $1;
+      }
     ;
 
 parametro:
       tipo IDENTIFICADOR
-      { delete[] $2; }
+      {
+          $$ = criarNoParametro($1, $2);
+          delete[] $2;
+      }
     ;
+
 comando_retorno:
       KW_RETORNE expressao PONTO_VIRGULA
-      {
-          liberarAST($2);
-          $$ = nullptr;
-      }
+      { $$ = criarNoRetorne($2); }
     | KW_RETORNE PONTO_VIRGULA
-      {
-          $$ = nullptr;
-      }
+      { $$ = criarNoRetorne(); }
     ;
 
 bloco:
@@ -287,10 +304,7 @@ comando_condicional:
 // Leitura: leia(<variavel>);  (<variavel> e um acesso, com ou sem indice)
 comando_leia:
       KW_LEIA ABRE_PAREN acesso FECHA_PAREN PONTO_VIRGULA
-      {
-          liberarAST($3);
-          $$ = nullptr;
-      }
+      { $$ = criarNoLeia($3); }
     ;
 
 // Escrita: escreva(<lista_expressoes>);
@@ -299,16 +313,20 @@ comando_leia:
 // e obrigatorio (lista_expressoes_escrita nao tem alternativa vazia).
 comando_escreva:
       KW_ESCREVA ABRE_PAREN lista_expressoes_escrita FECHA_PAREN PONTO_VIRGULA
-      {
-          $$ = nullptr;
-      }
+      { $$ = criarNoEscreva($3); }
     ;
 
 lista_expressoes_escrita:
       expressao
-      { liberarAST($1); }
+      {
+          $$ = criarNoBloco();
+          adicionarFilho($$, $1);
+      }
     | lista_expressoes_escrita VIRGULA expressao
-      { liberarAST($3); }
+      {
+          adicionarFilho($1, $3);
+          $$ = $1;
+      }
     ;
 
 // Declaracoes: inteiro x; real taxa = 1.5; inteiro a, b; inteiro v[10];
@@ -437,17 +455,34 @@ expressao:
 chamada_funcao:
       IDENTIFICADOR ABRE_PAREN lista_argumentos FECHA_PAREN
       {
-          $$ = criarNoId($1);
+          $$ = criarNoChamada($1, $3);
           delete[] $1;
       }
     ;
 
+// Chamada usada como comando, descartando o valor: imprimir(); soma(a, b);
+comando_chamada:
+      chamada_funcao PONTO_VIRGULA
+      { $$ = $1; }
+    ;
+
+// Mesmo arranjo de lista_parametros: "f(, 1)" nao e aceito.
 lista_argumentos:
-      %empty
-    | expressao
-      { liberarAST($1); }
-    | lista_argumentos VIRGULA expressao
-      { liberarAST($3); }
+      %empty     { $$ = criarNoBloco(); }
+    | argumentos { $$ = $1; }
+    ;
+
+argumentos:
+      expressao
+      {
+          $$ = criarNoBloco();
+          adicionarFilho($$, $1);
+      }
+    | argumentos VIRGULA expressao
+      {
+          adicionarFilho($1, $3);
+          $$ = $1;
+      }
     ;
 
 %%

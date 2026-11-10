@@ -169,5 +169,143 @@ TEST(ParserAST, ErroSintaticoLimpaRaizAST) {
     EXPECT_EQ(raizAST, nullptr);
 }
 
-}  // namespace
+TEST(ParserAST, FuncoesComParametrosTipoDeRetornoECorpo) {
+    const char* fonte =
+        "funcao inteiro soma(inteiro a, inteiro b) {\n"
+        "    retorne a + b;\n"
+        "}\n"
+        "funcao vazio principal() {\n"
+        "    retorne;\n"
+        "}\n";
 
+    ASSERT_EQ(analisar(fonte), 0);
+    ASSERT_NE(raizAST, nullptr);
+    ASSERT_EQ(raizAST->filhos.size(), 2u);
+
+    const NoAST* soma = raizAST->filhos[0];
+    ASSERT_EQ(soma->tipo, NO_FUNCAO);
+    EXPECT_EQ(soma->nome, "soma");
+    EXPECT_EQ(soma->op, "inteiro");
+    ASSERT_EQ(soma->filhos.size(), 2u);
+    EXPECT_EQ(soma->filhos[0]->tipo, NO_PARAMETRO);
+    EXPECT_EQ(astParaString(soma->filhos[0]), "inteiro a");
+    EXPECT_EQ(astParaString(soma->filhos[1]), "inteiro b");
+    ASSERT_NE(soma->dir, nullptr);
+    ASSERT_EQ(soma->dir->filhos.size(), 1u);
+    EXPECT_EQ(astParaString(soma->dir->filhos[0]), "(retorne (+ a b))");
+
+    const NoAST* principal = raizAST->filhos[1];
+    EXPECT_EQ(principal->nome, "principal");
+    EXPECT_EQ(principal->op, "vazio");
+    EXPECT_TRUE(principal->filhos.empty());
+    ASSERT_EQ(principal->dir->filhos.size(), 1u);
+    EXPECT_EQ(astParaString(principal->dir->filhos[0]), "(retorne)");
+
+    liberarAST(raizAST);
+    raizAST = nullptr;
+}
+
+TEST(ParserAST, ChamadaEmExpressaoEComoComando) {
+    const char* fonte =
+        "funcao vazio principal() {\n"
+        "    inteiro y = dobro(3) + 1;\n"
+        "    inteiro z = agora();\n"
+        "    mostrar(y, z * 2);\n"
+        "}\n";
+
+    ASSERT_EQ(analisar(fonte), 0);
+    ASSERT_NE(raizAST, nullptr);
+    const NoAST* corpo = raizAST->filhos[0]->dir;
+    ASSERT_EQ(corpo->filhos.size(), 3u);
+
+    // A chamada fica dentro da expressao, com os argumentos, e nao vira um
+    // identificador comum.
+    EXPECT_EQ(astParaString(corpo->filhos[0]), "(decl inteiro (y = (+ (chamada dobro 3) 1)))");
+    EXPECT_EQ(astParaString(corpo->filhos[1]), "(decl inteiro (z = (chamada agora)))");
+
+    const NoAST* comando = corpo->filhos[2];
+    ASSERT_EQ(comando->tipo, NO_CHAMADA);
+    EXPECT_EQ(comando->nome, "mostrar");
+    ASSERT_EQ(comando->filhos.size(), 2u);
+    EXPECT_EQ(astParaString(comando), "(chamada mostrar y (* z 2))");
+
+    liberarAST(raizAST);
+    raizAST = nullptr;
+}
+
+TEST(ParserAST, LeiaEEscreva) {
+    const char* fonte =
+        "programa {\n"
+        "    inteiro x, v[3];\n"
+        "    leia(x);\n"
+        "    leia(v[2]);\n"
+        "    escreva(\"x = \", x + 1, \"\\n\");\n"
+        "}\n";
+
+    ASSERT_EQ(analisar(fonte), 0);
+    ASSERT_NE(raizAST, nullptr);
+    ASSERT_EQ(raizAST->filhos.size(), 4u);
+
+    EXPECT_EQ(raizAST->filhos[1]->tipo, NO_LEIA);
+    EXPECT_EQ(astParaString(raizAST->filhos[1]), "(leia x)");
+    EXPECT_EQ(astParaString(raizAST->filhos[2]), "(leia v[2])");
+
+    const NoAST* escreva = raizAST->filhos[3];
+    ASSERT_EQ(escreva->tipo, NO_ESCREVA);
+    ASSERT_EQ(escreva->filhos.size(), 3u);
+    EXPECT_EQ(astParaString(escreva), "(escreva \"x = \" (+ x 1) \"\\n\")");
+
+    liberarAST(raizAST);
+    raizAST = nullptr;
+}
+
+TEST(ParserAST, ProgramaComSubprogramasImprimeArvoreCompleta) {
+    const char* fonte =
+        "programa {\n"
+        "    inteiro x = 10;\n"
+        "    funcao inteiro principal() {\n"
+        "        se (x >= 10) { escreva(\"OK\"); }\n"
+        "        retorne 0;\n"
+        "    }\n"
+        "}\n";
+
+    ASSERT_EQ(analisar(fonte), 0);
+    ASSERT_NE(raizAST, nullptr);
+
+    const std::string esperado =
+        "(programa\n"
+        "  (decl inteiro (x = 10))\n"
+        "  (funcao inteiro principal ()\n"
+        "    (bloco\n"
+        "      (se (>= x 10)\n"
+        "        (bloco\n"
+        "          (escreva \"OK\")\n"
+        "        )\n"
+        "      )\n"
+        "      (retorne 0)\n"
+        "    )\n"
+        "  )\n"
+        ")\n";
+
+    EXPECT_EQ(capturarImpressaoAST(raizAST), esperado);
+    liberarAST(raizAST);
+    raizAST = nullptr;
+}
+
+TEST(ParserAST, ListasNaoAceitamVirgulaSobrando) {
+    const char* casos[] = {
+        "funcao inteiro principal(, inteiro a) { retorne 0; }",
+        "funcao inteiro principal(inteiro a,) { retorne 0; }",
+        "programa { inteiro y = soma(, 1); }",
+        "programa { inteiro y = soma(1, ); }",
+    };
+    for (const char* fonte : casos) {
+        testing::internal::CaptureStderr();
+        const int res = analisar(fonte);
+        testing::internal::GetCapturedStderr();
+        EXPECT_NE(res, 0) << "Deveria recusar: " << fonte;
+        EXPECT_EQ(raizAST, nullptr) << fonte;
+    }
+}
+
+}  // namespace

@@ -25,7 +25,13 @@ enum TipoNo {
     NO_CHAR,
     NO_LOGICO,
     NO_ID,
-    NO_ACESSO_VETOR
+    NO_ACESSO_VETOR,
+    NO_FUNCAO,
+    NO_PARAMETRO,
+    NO_CHAMADA,
+    NO_RETORNE,
+    NO_LEIA,
+    NO_ESCREVA
 };
 
 // Estrutura de um no da AST:
@@ -37,6 +43,15 @@ enum TipoNo {
 // - valorChar: caractere literal (LIT_CHAR)
 // - esq, dir, extra: ponteiros para nos filhos (expressoes, condicoes, ramos)
 // - filhos: lista de instrucoes de um bloco/programa ou declaradores de uma declaracao
+//
+// Nos de subprogramas e de entrada e saida:
+// - NO_FUNCAO: op = tipo de retorno, nome = nome da funcao,
+//              filhos = parametros (NO_PARAMETRO), dir = corpo (bloco)
+// - NO_PARAMETRO: op = tipo, nome = nome do parametro
+// - NO_CHAMADA: nome = funcao chamada, filhos = argumentos
+// - NO_RETORNE: esq = expressao retornada (nullptr em "retorne;")
+// - NO_LEIA: esq = destino da leitura (variavel ou posicao de vetor)
+// - NO_ESCREVA: filhos = expressoes a escrever
 struct NoAST {
     TipoNo tipo;
     std::string op;
@@ -74,6 +89,17 @@ NoAST* criarNoSe(NoAST* condicao, NoAST* blocoEntao, NoAST* ramoSenao = nullptr)
 NoAST* criarNoEnquanto(NoAST* condicao, NoAST* corpo);
 NoAST* criarNoPara(NoAST* inicializacao, NoAST* condicao, NoAST* passo, NoAST* corpo);
 NoAST* criarNoDesvio(TipoNo tipo);
+
+// Construtores de nos para subprogramas e entrada e saida. Os parametros
+// "parametros" e "argumentos" sao nos-lista (criados com criarNoBloco()) cujos
+// filhos passam para o no novo; o no-lista e liberado.
+NoAST* criarNoFuncao(const std::string& tipoRetorno, const std::string& nome,
+                     NoAST* parametros, NoAST* corpo);
+NoAST* criarNoParametro(const std::string& tipo, const std::string& nome);
+NoAST* criarNoChamada(const std::string& nome, NoAST* argumentos);
+NoAST* criarNoRetorne(NoAST* expressao = nullptr);
+NoAST* criarNoLeia(NoAST* destino);
+NoAST* criarNoEscreva(NoAST* argumentos);
 
 // Utilitarios de manipulacao, impressao e liberacao da arvore
 void adicionarFilho(NoAST* pai, NoAST* filho);
