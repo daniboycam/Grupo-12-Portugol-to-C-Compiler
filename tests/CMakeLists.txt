@@ -42,3 +42,11 @@ target_compile_definitions(testes_integracao
     PRIVATE DIRETORIO_RAIZ="${CMAKE_SOURCE_DIR}")
 
 gtest_discover_tests(testes_integracao)
+
+add_executable(testes_semantico
+    semantico/semantico_test.cpp)
+
+target_link_libraries(testes_semantico
+    PRIVATE portugolc_core GTest::gtest_main)
+
+gtest_discover_tests(testes_semantico)

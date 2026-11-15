@@ -7,6 +7,7 @@
 #include "PortugolToC.tab.hpp"
 #include "portugol/tabela.hpp"
 #include "portugol/ast.hpp"
+#include "portugol/semantico.hpp"
 
 extern int yylex();
 extern int yyparse();
@@ -138,7 +139,8 @@ int listarTokens() {
     return 0;
 }
 
-// Modo padrao: entrega os tokens ao parser e exibe a AST gerada.
+// Modo padrao: entrega os tokens ao parser, verifica a AST com a analise
+// semantica e exibe a arvore validada.
 int analisar() {
     const int rc = yyparse();
     portugol::tabela.imprimirTabela();
@@ -149,6 +151,15 @@ int analisar() {
         return 1;
     }
     std::cout << "Analise sintatica concluida com sucesso.\n";
+
+    const int errosSemanticos = portugol::analisarSemantica(raizAST, std::cerr);
+    if (errosSemanticos > 0) {
+        liberarAST(raizAST);
+        raizAST = nullptr;
+        std::cerr << "Falha na analise semantica (" << errosSemanticos << " erro(s)).\n";
+        return 1;
+    }
+    std::cout << "Analise semantica concluida com sucesso.\n";
     imprimirAST(raizAST);
     liberarAST(raizAST);
     raizAST = nullptr;
@@ -160,7 +171,7 @@ void uso(const char* programa) {
               << "  -t, --tokens   lista os tokens reconhecidos (modo scanner)\n"
               << "  -h, --ajuda    mostra esta mensagem\n\n"
               << "Sem arquivo, le da entrada padrao.\n"
-              << "Sem --tokens, executa a analise sintatica.\n";
+              << "Sem --tokens, executa as analises sintatica e semantica.\n";
 }
 
 }  // namespace
