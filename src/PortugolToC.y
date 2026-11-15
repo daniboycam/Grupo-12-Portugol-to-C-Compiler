@@ -189,11 +189,16 @@ item:
     ;
 
 funcao:
-      KW_FUNCAO tipo_retorno IDENTIFICADOR ABRE_PAREN lista_parametros FECHA_PAREN bloco
+      KW_FUNCAO tipo_retorno IDENTIFICADOR
+      // Guarda a linha do nome: ao reduzir a regra inteira o scanner ja esta
+      // no fim do corpo, e e o cabecalho que as mensagens devem apontar.
+      { $<ival>$ = yylineno; }
+      ABRE_PAREN lista_parametros FECHA_PAREN bloco
       {
           tem_funcoes = true;
           if (std::string($3) == "principal") tem_principal = true;
-          $$ = criarNoFuncao($2, $3, $5, $7);
+          $$ = criarNoFuncao($2, $3, $6, $8);
+          $$->linha = $<ival>4;
           delete[] $3;
       }
     ;

@@ -43,6 +43,11 @@ enum TipoNo {
 // - valorChar: caractere literal (LIT_CHAR)
 // - esq, dir, extra: ponteiros para nos filhos (expressoes, condicoes, ramos)
 // - filhos: lista de instrucoes de um bloco/programa ou declaradores de uma declaracao
+// - linha: linha do fonte em que o no foi reconhecido (usada nas mensagens de erro)
+// - tipoDado: tipo inferido pela analise semantica ("inteiro", "real", ...);
+//             fica vazio ate analisarSemantica() percorrer a arvore
+// - usado: em NO_DECLARADOR e NO_PARAMETRO, indica se o simbolo e lido em
+//          alguma expressao (preenchido pela analise semantica)
 //
 // Nos de subprogramas e de entrada e saida:
 // - NO_FUNCAO: op = tipo de retorno, nome = nome da funcao,
@@ -63,6 +68,9 @@ struct NoAST {
     NoAST* dir = nullptr;
     NoAST* extra = nullptr;
     std::vector<NoAST*> filhos;
+    int linha = 0;
+    std::string tipoDado;
+    bool usado = false;
 };
 
 // Raiz da AST produzida pela ultima execucao bem-sucedida de yyparse().

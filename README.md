@@ -36,7 +36,7 @@ Os dois caminhos geram o binario em `build/portugolc`.
 
 ## Usando
 
-### Analise sintatica, Tabela de Simbolos e AST (modo padrao)
+### Analise sintatica, analise semantica, Tabela de Simbolos e AST (modo padrao)
 
 Sem `--tokens`, o compilador executa a analise lexica e sintatica completa, exibe a Tabela de Simbolos e imprime a Arvore Sintatica Abstrata (AST) em formato S-expression:
 
@@ -51,6 +51,7 @@ nota	inteiro	3
 conceito	cadeia	4
 ==============================
 Analise sintatica concluida com sucesso.
+Analise semantica concluida com sucesso.
 (programa
   (decl inteiro (nota = 75))
   (decl cadeia (conceito = ""))
@@ -62,6 +63,20 @@ Analise sintatica concluida com sucesso.
   )
 )
 ```
+
+### Erros semanticos
+
+Depois do parser, a analise semantica percorre a AST e relata todos os erros encontrados, com a linha de origem, terminando com codigo de saida `1`:
+
+```
+Erro semântico na linha 2: nao e possivel inicializar 'x' (inteiro) com um valor do tipo cadeia
+Erro semântico na linha 3: condicao do 'se' deve ser do tipo logico (recebeu inteiro)
+Erro semântico na linha 4: 'pare' so pode ser usado dentro de um laco (enquanto/para)
+Erro semântico na linha 6: variavel 'y' nao declarada
+Falha na analise semantica (4 erro(s)).
+```
+
+Sao verificados: uso de variaveis e funcoes nao declaradas, redeclaracao no mesmo escopo, compatibilidade de tipos em inicializacoes, atribuicoes e expressoes (sao aceitas as conversoes `inteiro -> real` e `caracter -> cadeia`), chamadas de funcao (existencia, aridade e tipo dos argumentos), `retorne` (tipo compativel, `retorne;` so em funcoes `vazio` e retorno em todos os caminhos), `pare`/`continue` apenas dentro de lacos, indices de vetor inteiros e funcoes declaradas apenas no nivel do programa. As funcoes podem ser chamadas antes de sua definicao (inclusive recursivamente); variaveis precisam ser declaradas antes do uso.
 
 ### Modo scanner (`--tokens`)
 
