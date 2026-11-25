@@ -7,38 +7,64 @@
 
 namespace portugol {
 
+// Categoria do simbolo na tabela.
+enum class CategoriaSimbolo { VARIAVEL, PARAMETRO, FUNCAO };
+
 // Entrada da tabela de simbolos.
 struct Simbolo {
     std::string nome;
     std::string tipo;
-    int         linha;
+    int linha;
+    CategoriaSimbolo categoria = CategoriaSimbolo::VARIAVEL;
+    int dimensao = 0; // 0 para escalar, >0 para vetor
+    std::string tipo_retorno; // apenas para FUNCAO
+    std::vector<std::string> tipos_parametros; // apenas para FUNCAO
 };
 
-// Tabela de simbolos do programa.
-//
-// Mantem um unico escopo (o global) nesta versao.
+// Tabela de simbolos do programa com suporte a escopos aninhados.
 class TabelaSimbolos {
 public:
-    // Insere o simbolo. Retorna false se ja existir um simbolo com o mesmo
-    // nome no escopo corrente (o simbolo nao e inserido nesse caso).
+    TabelaSimbolos();
+
+    // Entra em um novo escopo (funcao ou bloco).
+    void entrarEscopo(const std::string& nome = "bloco");
+    
+    // Sai do escopo atual.
+    void sairEscopo();
+
+    // Insere o simbolo no escopo atual. Retorna false se ja existir
+    // no MESMO escopo (permitindo shadowing).
     bool inserirSimbolo(const std::string& nome,
                         const std::string& tipo,
-                        int linha);
+                        int linha,
+                        CategoriaSimbolo cat = CategoriaSimbolo::VARIAVEL,
+                        int dimensao = 0,
+                        const std::string& tipo_retorno = "",
+                        const std::vector<std::string>& tipos_parametros = {});
 
-    // Retorna o simbolo com o nome dado, ou nullptr se nao existir.
+    // Busca o simbolo de dentro para fora (respeitando shadowing).
     const Simbolo* buscarSimbolo(const std::string& nome) const;
+    
+    // Busca o simbolo apenas no escopo atual.
+    const Simbolo* buscarSimboloEscopoAtual(const std::string& nome) const;
 
-    // Imprime todos os simbolos cadastrados, um por linha.
+    // Imprime todos os simbolos cadastrados (inclusive de escopos fechados).
     void imprimirTabela() const;
 
-    // Remove todos os simbolos.
+    // Remove todos os simbolos e reinicia o escopo global.
     void limpar();
 
-    // Numero de simbolos cadastrados.
+    // Numero total de simbolos cadastrados.
     std::size_t tamanho() const;
 
 private:
-    std::vector<Simbolo> simbolos_;
+    struct Escopo {
+        std::string nome;
+        std::vector<Simbolo> simbolos;
+    };
+    
+    std::vector<Escopo> pilha_;
+    std::vector<Simbolo> todos_simbolos_;
 };
 
 // Instancia global usada pelo parser e pelo driver.
