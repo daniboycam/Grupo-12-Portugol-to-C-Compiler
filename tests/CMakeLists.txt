@@ -58,3 +58,17 @@ target_link_libraries(testes_codegen
     PRIVATE portugolc_core GTest::gtest_main)
 
 gtest_discover_tests(testes_codegen)
+
+# Issue #67 - Testes ponta a ponta pela interface do compilador
+add_executable(testes_e2e
+    e2e/cli_test.cpp)
+
+target_link_libraries(testes_e2e
+    PRIVATE GTest::gtest_main)
+
+target_compile_definitions(testes_e2e
+    PRIVATE PORTUGOLC_BIN="$<TARGET_FILE:portugolc>")
+
+add_dependencies(testes_e2e portugolc)
+
+gtest_discover_tests(testes_e2e)
