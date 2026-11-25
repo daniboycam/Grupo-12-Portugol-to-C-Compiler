@@ -88,7 +88,7 @@ g++ -std=c++17 -Wall -Wextra -Wpedantic programa.cpp -o programa
 ./programa
 ```
 
-Traducao: `inteiro -> int`, `real -> double`, `cadeia -> std::string`, `caracter -> char`, `logico -> bool`, `vazio -> void`; `funcao principal()` vira `int main()` (um programa sem funcoes vira o corpo de `main`); `leia` -> `std::cin >>`, `escreva` -> `std::cout <<` (valores logicos saem como `verdadeiro`/`falso`); `se/senao`, `enquanto`, `para`, `pare`, `continue` e `retorne` viram `if/else`, `while`, `for`, `break`, `continue` e `return`. Variaveis sem inicializador recebem o valor padrao do tipo e identificadores que sao palavras reservadas do C++ ganham o sufixo `_`. O codigo gerado compila sem warnings com `-Wall -Wextra -Wpedantic`.
+Traducao: `inteiro -> int`, `real -> double`, `cadeia -> std::string`, `caracter -> char`, `logico -> bool`, `vazio -> void`; `funcao principal()` vira `int main()` (um programa sem funcoes vira o corpo de `main`); `leia` -> `std::cin >>`, `escreva` -> `std::cout <<` (valores logicos saem como `verdadeiro`/`falso`); `se/senao`, `enquanto`, `para`, `pare`, `continue` e `retorne` viram `if/else`, `while`, `for`, `break`, `continue` e `return`. Variaveis sem inicializador recebem o valor padrao do tipo. Todo identificador ganha o prefixo `p_` (`x` vira `p_x`), entao nomes como `int`, `div`, `time` ou `EOF` nao colidem com o C++; uma variavel local que esconde outra de mesmo nome ganha nome proprio (`p2_x`), e um `caracter` usado onde se espera `cadeia` vira `std::string(1, c)`. O `-o` recusa gravar por cima do proprio arquivo de entrada. O codigo gerado compila sem warnings com `-Wall -Wextra -Wpedantic`.
 
 ### Modo scanner (`--tokens`)
 

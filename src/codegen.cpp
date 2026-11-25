@@ -4,7 +4,8 @@
 #include <cstdlib>
 #include <sstream>
 #include <string>
-#include <unordered_set>
+#include <unordered_map>
+#include <vector>
 
 namespace portugol {
 
@@ -29,22 +30,12 @@ std::string valorPadrao(const std::string& tipo) {
     return "false";
 }
 
-// Identificadores validos em Portugol que nao podem ser usados em C++.
-std::string nomeCpp(const std::string& nome) {
-    static const std::unordered_set<std::string> reservadas = {
-        "alignas", "alignof", "and", "and_eq", "asm", "auto", "bitand", "bitor", "bool",
-        "break", "case", "catch", "char", "char16_t", "char32_t", "class", "compl", "const",
-        "constexpr", "const_cast", "continue", "decltype", "default", "delete", "do",
-        "double", "dynamic_cast", "else", "enum", "explicit", "export", "extern", "false",
-        "float", "for", "friend", "goto", "if", "inline", "int", "long", "main", "mutable",
-        "namespace", "new", "noexcept", "not", "not_eq", "nullptr", "operator", "or",
-        "or_eq", "private", "protected", "public", "register", "reinterpret_cast", "return",
-        "short", "signed", "sizeof", "static", "static_assert", "static_cast", "std",
-        "struct", "switch", "template", "this", "thread_local", "throw", "true", "try",
-        "typedef", "typeid", "typename", "union", "unsigned", "using", "virtual", "void",
-        "volatile", "wchar_t", "while", "xor", "xor_eq"};
-    return reservadas.count(nome) != 0 ? nome + "_" : nome;
-}
+// Todo identificador do programa ganha o prefixo "p_". Assim nenhum nome
+// colide com palavras reservadas do C++, com nomes da biblioteca padrao que
+// os cabecalhos deixam no escopo global (div, rand, time...) ou com macros
+// (EOF, NULL...), e a traducao continua injetiva: "int" e "int_" viram
+// "p_int" e "p_int_".
+std::string nomeCpp(const std::string& nome) { return "p_" + nome; }
 
 std::string escaparByte(unsigned char c, char aspa) {
     switch (c) {
@@ -102,9 +93,16 @@ public:
             return out_.str();
         }
 
+        // Escopo global: as funcoes valem no programa inteiro, como na analise
+        // semantica; as variaveis globais entram na ordem em que aparecem.
+        abrirEscopo();
         bool temFuncoes = false;
         for (const NoAST* item : raiz->filhos) {
-            if (item != nullptr && item->tipo == NO_FUNCAO) temFuncoes = true;
+            if (item != nullptr && item->tipo == NO_FUNCAO) {
+                temFuncoes = true;
+                funcoes_[item->nome] = item;
+                escopos_.back()[item->nome] = nomeFuncao(item->nome);
+            }
         }
 
         if (!temFuncoes) {
@@ -147,6 +145,52 @@ public:
 private:
     std::ostringstream out_;
     bool emMain_ = false;  // dentro de main(): "retorne;" vira "return 0;"
+    const NoAST* funcaoAtual_ = nullptr;
+    std::unordered_map<std::string, const NoAST*> funcoes_;
+
+    // Escopos do programa Portugol (nome -> nome no C++), espelhando os da
+    // analise semantica, e quantas vezes cada nome ja foi renomeado.
+    std::vector<std::unordered_map<std::string, std::string>> escopos_;
+    std::unordered_map<std::string, int> renomeacoes_;
+
+    void abrirEscopo() { escopos_.emplace_back(); }
+    void fecharEscopo() { escopos_.pop_back(); }
+
+    static std::string nomeFuncao(const std::string& nome) {
+        return nome == "principal" ? "main" : nomeCpp(nome);
+    }
+
+    std::string nomeDe(const std::string& nome) const {
+        for (auto it = escopos_.rbegin(); it != escopos_.rend(); ++it) {
+            const auto achou = it->find(nome);
+            if (achou != it->end()) return achou->second;
+        }
+        return nomeCpp(nome);
+    }
+
+    // Declara uma variavel local. Se ela esconde um nome de fora, ganha um
+    // nome proprio ("p2_x", "p3_x"...): em C++ o nome novo ja vale dentro do
+    // proprio inicializador, entao "inteiro x = x + 1;" leria a variavel nova,
+    // ainda sem valor, e nao a de fora, como no Portugol. O prefixo "pN_" nunca
+    // coincide com um nome do usuario, que sempre comeca com "p_".
+    std::string declararLocal(const std::string& nome) {
+        bool esconde = false;
+        for (const auto& escopo : escopos_) esconde = esconde || escopo.count(nome) != 0;
+        std::string cpp = nomeCpp(nome);
+        if (esconde) cpp = "p" + std::to_string(++renomeacoes_[nome] + 1) + "_" + nome;
+        escopos_.back()[nome] = cpp;
+        return cpp;
+    }
+
+    // Valor entregue a um destino do tipo "destino" (inicializacao, argumento,
+    // retorno, atribuicao). caracter -> cadeia precisa ser explicito:
+    // "std::string s = 'a';" nao compila.
+    std::string valorPara(const std::string& destino, const NoAST* e) {
+        if (destino == "cadeia" && e != nullptr && e->tipoDado == "caracter") {
+            return "std::string(1, " + expr(e, true) + ")";
+        }
+        return expr(e, true);
+    }
 
     static std::string recuo(int nivel) { return std::string(static_cast<size_t>(nivel) * 4, ' '); }
 
@@ -154,7 +198,7 @@ private:
 
     std::string cabecalho(const NoAST* f, bool comAtributos) {
         if (f->nome == "principal") return "int main()";
-        std::string s = tipoCpp(f->op) + " " + nomeCpp(f->nome) + "(";
+        std::string s = tipoCpp(f->op) + " " + nomeFuncao(f->nome) + "(";
         for (size_t i = 0; i < f->filhos.size(); ++i) {
             const NoAST* p = f->filhos[i];
             if (i > 0) s += ", ";
@@ -167,24 +211,40 @@ private:
     void funcao(const NoAST* f) {
         const bool principal = f->nome == "principal";
         emMain_ = principal;
+        funcaoAtual_ = f;
         out_ << cabecalho(f, true) << " {\n";
-        if (f->dir != nullptr) {
-            for (const NoAST* item : f->dir->filhos) comando(item, 1);
-        }
+        // Parametros e corpo dividem um escopo, como na analise semantica.
+        abrirEscopo();
+        for (const NoAST* p : f->filhos) escopos_.back()[p->nome] = nomeCpp(p->nome);
+        if (f->dir != nullptr) bloco(f->dir, 1, false);
+        fecharEscopo();
         const bool terminaComRetorne = f->dir != nullptr && !f->dir->filhos.empty() &&
                                        f->dir->filhos.back() != nullptr &&
                                        f->dir->filhos.back()->tipo == NO_RETORNE;
         if (principal && f->op == "vazio" && !terminaComRetorne) out_ << "    return 0;\n";
         out_ << "}\n";
         emMain_ = false;
+        funcaoAtual_ = nullptr;
     }
 
     // ---- declaracoes ----
 
-    std::string declarador(const NoAST* d) {
-        std::string s = nomeCpp(d->nome);
+    // O inicializador e traduzido antes de declarar o nome, entao ele ainda
+    // enxerga a variavel de fora (mesma regra da analise semantica).
+    std::string declarador(const NoAST* d, bool global) {
+        const std::string valor =
+            d->valor >= 0 ? ""
+                          : (d->esq != nullptr ? valorPara(d->tipoDado, d->esq)
+                                               : valorPadrao(d->tipoDado));
+        std::string s;
+        if (global) {
+            s = nomeCpp(d->nome);
+            escopos_.back()[d->nome] = s;
+        } else {
+            s = declararLocal(d->nome);
+        }
         if (d->valor >= 0) return s + "[" + std::to_string(d->valor) + "] = {}";
-        return s + " = " + (d->esq != nullptr ? expr(d->esq, true) : valorPadrao(d->tipoDado));
+        return s + " = " + valor;
     }
 
     // Uma linha por variavel, para marcar so as que nunca sao lidas.
@@ -192,7 +252,7 @@ private:
         for (const NoAST* d : n->filhos) {
             out_ << recuo(nivel);
             if (!global && !d->usado) out_ << "[[maybe_unused]] ";
-            out_ << tipoCpp(n->op) << " " << declarador(d) << ";\n";
+            out_ << tipoCpp(n->op) << " " << declarador(d, global) << ";\n";
         }
     }
 
@@ -205,21 +265,26 @@ private:
         s += tipoCpp(n->op) + " ";
         for (size_t i = 0; i < n->filhos.size(); ++i) {
             if (i > 0) s += ", ";
-            s += declarador(n->filhos[i]);
+            s += declarador(n->filhos[i], false);
         }
         return s;
     }
 
     std::string atribuicao(const NoAST* n) {
-        return expr(n->esq, true) + " " + n->op + " " + expr(n->dir, true);
+        const std::string valor = n->op == "=" ? valorPara(n->esq->tipoDado, n->dir)
+                                               : expr(n->dir, true);
+        return expr(n->esq, true) + " " + n->op + " " + valor;
     }
 
     // ---- comandos ----
 
-    void bloco(const NoAST* b, int nivel) {
-        if (b != nullptr) {
-            for (const NoAST* item : b->filhos) comando(item, nivel);
-        }
+    // Corpo de se/senao/enquanto abre escopo proprio; o do "para" divide o
+    // escopo com a variavel da inicializacao e o da funcao com os parametros.
+    void bloco(const NoAST* b, int nivel, bool novoEscopo = true) {
+        if (b == nullptr) return;
+        if (novoEscopo) abrirEscopo();
+        for (const NoAST* item : b->filhos) comando(item, nivel);
+        if (novoEscopo) fecharEscopo();
     }
 
     void comando(const NoAST* n, int nivel) {
@@ -247,6 +312,7 @@ private:
                 break;
 
             case NO_PARA: {
+                abrirEscopo();
                 std::string init;
                 if (n->esq != nullptr) {
                     init = n->esq->tipo == NO_DECL_VAR ? declaracaoEmLinha(n->esq)
@@ -255,8 +321,9 @@ private:
                 const std::string cond = n->dir != nullptr ? " " + expr(n->dir, true) : "";
                 const std::string passo = n->extra != nullptr ? " " + atribuicao(n->extra) : " ";
                 out_ << r << "for (" << init << ";" << cond << ";" << passo << ") {\n";
-                if (!n->filhos.empty()) bloco(n->filhos[0], nivel + 1);
+                if (!n->filhos.empty()) bloco(n->filhos[0], nivel + 1, false);
                 out_ << r << "}\n";
+                fecharEscopo();
                 break;
             }
 
@@ -270,7 +337,8 @@ private:
 
             case NO_RETORNE:
                 if (n->esq != nullptr) {
-                    out_ << r << "return " << expr(n->esq, true) << ";\n";
+                    const std::string destino = funcaoAtual_ != nullptr ? funcaoAtual_->op : "";
+                    out_ << r << "return " << valorPara(destino, n->esq) << ";\n";
                 } else {
                     out_ << r << (emMain_ ? "return 0;\n" : "return;\n");
                 }
@@ -346,8 +414,8 @@ private:
             case NO_STRING: return literalCadeia(e->nome);
             case NO_CHAR: return literalCaracter(e->valorChar);
             case NO_LOGICO: return e->valor != 0 ? "true" : "false";
-            case NO_ID: return nomeCpp(e->nome);
-            case NO_ACESSO_VETOR: return nomeCpp(e->nome) + "[" + expr(e->esq, true) + "]";
+            case NO_ID: return nomeDe(e->nome);
+            case NO_ACESSO_VETOR: return nomeDe(e->nome) + "[" + expr(e->esq, true) + "]";
             case NO_OP: {
                 const std::string s = operando(e->esq) + " " + e->op + " " + operando(e->dir);
                 return topo ? s : "(" + s + ")";
@@ -357,10 +425,15 @@ private:
                 return topo ? s : "(" + s + ")";
             }
             case NO_CHAMADA: {
-                std::string s = nomeCpp(e->nome) + "(";
+                // A chamada sempre vai para a funcao, mesmo dentro do
+                // inicializador de uma variavel local de mesmo nome.
+                const auto f = funcoes_.find(e->nome);
+                std::string s = nomeFuncao(e->nome) + "(";
                 for (size_t i = 0; i < e->filhos.size(); ++i) {
                     if (i > 0) s += ", ";
-                    s += expr(e->filhos[i], true);
+                    const bool temParametro = f != funcoes_.end() && i < f->second->filhos.size();
+                    s += temParametro ? valorPara(f->second->filhos[i]->op, e->filhos[i])
+                                      : expr(e->filhos[i], true);
                 }
                 return s + ")";
             }

@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include <system_error>
 
 #include "PortugolToC.tab.hpp"
 #include "portugol/tabela.hpp"
@@ -240,6 +241,14 @@ int main(int argc, char** argv) {
         }
         if (!std::filesystem::is_regular_file(entrada)) {
             std::cerr << "erro: '" << entrada << "' nao e um arquivo\n";
+            return 2;
+        }
+        // "-o x.por x.por" apagaria o programa Portugol ao gravar o C++.
+        std::error_code ec;
+        if (saidaCpp != nullptr && std::string(saidaCpp) != "-" &&
+            std::filesystem::equivalent(entrada, saidaCpp, ec)) {
+            std::cerr << "erro: o arquivo de saida '" << saidaCpp
+                      << "' e o proprio arquivo de entrada\n";
             return 2;
         }
         yyin = std::fopen(entrada, "r");

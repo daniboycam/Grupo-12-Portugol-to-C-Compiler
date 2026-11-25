@@ -105,12 +105,12 @@ TEST(CodegenTraducao, TiposEValoresPadrao) {
         "programa {\n inteiro i;\n real r;\n cadeia s;\n caracter ch;\n logico b;\n"
         " inteiro v[4];\n escreva(i, r, s, ch, b, v[0]);\n}\n");
     contem(c, "int main() {");
-    contem(c, "int i = 0;");
-    contem(c, "double r = 0.0;");
-    contem(c, "std::string s = \"\";");
-    contem(c, "char ch = '\\0';");
-    contem(c, "bool b = false;");
-    contem(c, "int v[4] = {};");
+    contem(c, "int p_i = 0;");
+    contem(c, "double p_r = 0.0;");
+    contem(c, "std::string p_s = \"\";");
+    contem(c, "char p_ch = '\\0';");
+    contem(c, "bool p_b = false;");
+    contem(c, "int p_v[4] = {};");
     contem(c, "return 0;");
 }
 
@@ -120,21 +120,21 @@ TEST(CodegenTraducao, PrincipalViraMainEFuncoesTemPrototipo) {
         " funcao vazio principal() { escreva(dobro(2)); }\n"
         " funcao inteiro dobro(inteiro x) { retorne x * 2; }\n"
         "}\n");
-    contem(c, "int dobro(int x);\n");
+    contem(c, "int p_dobro(int p_x);\n");
     contem(c, "int main() {");
-    contem(c, "int dobro(int x) {\n    return x * 2;\n}");
+    contem(c, "int p_dobro(int p_x) {\n    return p_x * 2;\n}");
     EXPECT_EQ(c.find("principal"), std::string::npos);
 }
 
 TEST(CodegenTraducao, EntradaESaida) {
     const std::string c = gerar("programa {\n inteiro n;\n leia(n);\n escreva(\"n=\", n, \"\\n\");\n}\n");
-    contem(c, "std::cin >> n;");
-    contem(c, "std::cout << \"n=\" << n << \"\\n\";");
+    contem(c, "std::cin >> p_n;");
+    contem(c, "std::cout << \"n=\" << p_n << \"\\n\";");
 }
 
 TEST(CodegenTraducao, LogicoEscritoPorExtenso) {
     const std::string c = gerar("programa {\n logico ok = verdadeiro;\n escreva(ok);\n}\n");
-    contem(c, "(ok ? \"verdadeiro\" : \"falso\")");
+    contem(c, "(p_ok ? \"verdadeiro\" : \"falso\")");
 }
 
 TEST(CodegenTraducao, ControleDeFluxo) {
@@ -145,22 +145,22 @@ TEST(CodegenTraducao, ControleDeFluxo) {
         " para (inteiro j = 0; j < 3; j += 1) { continue; }\n"
         " para (; i < 20; ) { i += 2; }\n"
         "}\n");
-    contem(c, "if (i > 0) {");
-    contem(c, "} else if (i < 0) {");
+    contem(c, "if (p_i > 0) {");
+    contem(c, "} else if (p_i < 0) {");
     contem(c, "} else {");
-    contem(c, "while (i < 10) {");
+    contem(c, "while (p_i < 10) {");
     contem(c, "break;");
-    contem(c, "for (int j = 0; j < 3; j += 1) {");
+    contem(c, "for (int p_j = 0; p_j < 3; p_j += 1) {");
     contem(c, "continue;");
-    contem(c, "for (; i < 20; ) {");
+    contem(c, "for (; p_i < 20; ) {");
 }
 
 TEST(CodegenTraducao, ExpressoesComParentesesExplicitos) {
     const std::string c = gerar(
         "programa {\n inteiro a = 1;\n logico ok = a > 0 && a < 5 || !(a == 3);\n"
         " a = (a + 2) * 3 - -a;\n}\n");
-    contem(c, "bool ok = ((a > 0) && (a < 5)) || (!(a == 3));");
-    contem(c, "a = ((a + 2) * 3) - (-a);");
+    contem(c, "bool p_ok = ((p_a > 0) && (p_a < 5)) || (!(p_a == 3));");
+    contem(c, "p_a = ((p_a + 2) * 3) - (-p_a);");
 }
 
 TEST(CodegenTraducao, ConcatenacaoComLiteralViraStdString) {
@@ -170,7 +170,7 @@ TEST(CodegenTraducao, ConcatenacaoComLiteralViraStdString) {
 
 TEST(CodegenTraducao, LiteralRealMantemTipoReal) {
     const std::string c = gerar("programa {\n real r = 4.0 / 2;\n escreva(r);\n}\n");
-    contem(c, "double r = 4.0 / 2;");
+    contem(c, "double p_r = 4.0 / 2;");
 }
 
 TEST(CodegenTraducao, EscapaLiterais) {
@@ -181,18 +181,48 @@ TEST(CodegenTraducao, EscapaLiterais) {
     contem(c, "'\\''");
 }
 
-TEST(CodegenTraducao, PalavraReservadaDoCppGanhaSufixo) {
-    const std::string c = gerar("programa {\n inteiro int = 1;\n inteiro main = int;\n escreva(main);\n}\n");
-    contem(c, "int int_ = 1;");
-    contem(c, "int main_ = int_;");
+TEST(CodegenTraducao, IdentificadoresGanhamPrefixo) {
+    // Palavras reservadas do C++ e nomes que so diferem por "_" nao colidem.
+    const std::string c = gerar(
+        "programa {\n inteiro int = 1;\n inteiro int_ = 2;\n inteiro main = int + int_;\n"
+        " escreva(main);\n}\n");
+    contem(c, "int p_int = 1;");
+    contem(c, "int p_int_ = 2;");
+    contem(c, "int p_main = p_int + p_int_;");
+}
+
+TEST(CodegenTraducao, VariavelQueEscondeOutraGanhaNomeProprio) {
+    const std::string c = gerar(
+        "programa {\n"
+        " funcao inteiro f(inteiro x) {\n"
+        "  se (x > 0) { inteiro x = x + 1; retorne x; }\n"
+        "  retorne x;\n"
+        " }\n"
+        " funcao vazio principal() { escreva(f(10)); }\n"
+        "}\n");
+    contem(c, "int p2_x = p_x + 1;");
+    contem(c, "return p2_x;");
+    contem(c, "    return p_x;\n");
+}
+
+TEST(CodegenTraducao, CaracterParaCadeiaViraStdString) {
+    const std::string c = gerar(
+        "programa {\n"
+        " funcao cadeia f(cadeia s) { retorne 'z'; }\n"
+        " funcao vazio principal() { cadeia s = 'a'; s = 'b'; escreva(f('c'), s); }\n"
+        "}\n");
+    contem(c, "std::string p_s = std::string(1, 'a');");
+    contem(c, "p_s = std::string(1, 'b');");
+    contem(c, "return std::string(1, 'z');");
+    contem(c, "p_f(std::string(1, 'c'))");
 }
 
 TEST(CodegenTraducao, VariavelNuncaLidaRecebeMaybeUnused) {
     const std::string c = gerar(
         "programa {\n funcao vazio principal() { inteiro x; x = 1; escreva(f(2)); }\n"
         " funcao inteiro f(inteiro a) { retorne 0; }\n}\n");
-    contem(c, "[[maybe_unused]] int x = 0;");
-    contem(c, "int f([[maybe_unused]] int a) {");
+    contem(c, "[[maybe_unused]] int p_x = 0;");
+    contem(c, "int p_f([[maybe_unused]] int p_a) {");
 }
 
 TEST(CodegenTraducao, RetorneSemValorNaPrincipalViraReturnZero) {
@@ -258,6 +288,57 @@ TEST(CodegenExecucao, SemanticaDeDivisaoEOperadores) {
         " \" \", 'a' < 'b', \" \", \"abc\" == \"abc\", \"\\n\");\n"
         "}\n"));
     EXPECT_EQ(saida, "3 3.5 1 10 16 verdadeiro verdadeiro\n");
+}
+
+TEST(CodegenExecucao, CaracterParaCadeia) {
+    EXIGIR_COMPILADOR();
+    const std::string saida = compilarEExecutar(gerar(
+        "programa {\n"
+        " funcao cadeia repete(cadeia s, inteiro n) {\n"
+        "  cadeia r = \"\";\n"
+        "  para (inteiro i = 0; i < n; i += 1) { r += s; }\n"
+        "  retorne r;\n"
+        " }\n"
+        " funcao cadeia inicial(cadeia s) { retorne 'I'; }\n"
+        " funcao vazio principal() {\n"
+        "  caracter c = 'x';\n"
+        "  cadeia s = c;\n"
+        "  escreva(s, \" \", repete(c, 3), \" \", inicial(\"abc\"), \"\\n\");\n"
+        " }\n"
+        "}\n"));
+    EXPECT_EQ(saida, "x xxx I\n");
+}
+
+TEST(CodegenExecucao, VariavelInternaUsaAExternaNoInicializador) {
+    EXIGIR_COMPILADOR();
+    const std::string saida = compilarEExecutar(gerar(
+        "programa {\n"
+        " funcao inteiro f(inteiro x) {\n"
+        "  se (x > 0) { inteiro x = x + 1; retorne x; }\n"
+        "  retorne 0;\n"
+        " }\n"
+        " funcao inteiro dobro(inteiro n) { retorne n * 2; }\n"
+        " funcao vazio principal() {\n"
+        "  inteiro dobro = dobro(2);\n"
+        "  escreva(f(10), \" \", dobro, \"\\n\");\n"
+        " }\n"
+        "}\n"));
+    EXPECT_EQ(saida, "11 4\n");
+}
+
+TEST(CodegenExecucao, NomesDaBibliotecaPadraoEMacros) {
+    EXIGIR_COMPILADOR();
+    const std::string saida = compilarEExecutar(gerar(
+        "programa {\n"
+        " inteiro time = 3;\n"
+        " funcao inteiro div(inteiro a, inteiro b) { retorne a / b; }\n"
+        " funcao inteiro rand() { retorne 4; }\n"
+        " funcao vazio principal() {\n"
+        "  inteiro EOF = 1;\n inteiro NULL = 2;\n inteiro int = 5;\n inteiro int_ = 6;\n"
+        "  escreva(div(9, time), rand(), EOF, NULL, int, int_, \"\\n\");\n"
+        " }\n"
+        "}\n"));
+    EXPECT_EQ(saida, "341256\n");
 }
 
 }  // namespace

@@ -24,7 +24,11 @@ namespace portugol {
 // - se/senao -> if/else, enquanto -> while, para -> for, pare -> break;
 // - variaveis sem inicializador recebem o valor padrao do tipo (0, 0.0, "",
 //   '\0', false), como no Portugol;
-// - identificadores que sao palavras reservadas do C++ ganham o sufixo "_".
+// - todo identificador ganha o prefixo "p_" (x -> p_x), para nao colidir com
+//   palavras reservadas, nomes da biblioteca padrao ou macros do C++;
+// - uma variavel local que esconde outro nome ganha nome proprio (p2_x...),
+//   porque em C++ o nome novo ja valeria no proprio inicializador;
+// - caracter entregue a um destino cadeia vira std::string(1, c).
 std::string gerarCodigoCpp(const NoAST* raiz);
 
 }  // namespace portugol
