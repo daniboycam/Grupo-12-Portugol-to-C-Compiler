@@ -22,3 +22,52 @@ jobs:
 
       - name: Testar
         run: ctest --test-dir build --output-on-failure --no-tests=error -j "$(nproc)"
+
+  memoria:
+    name: Valgrind - sem vazamentos definitivos ou indiretos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar compilador e Valgrind
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ flex bison valgrind
+
+      - name: Compilar com simbolos de depuracao
+        run: |
+          cmake -S . -B build-memoria -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build-memoria --parallel 2
+
+      - name: Verificar vazamentos na compilacao Portugol para C++
+        shell: bash
+        run: |
+          cat > build-memoria/exemplo.por <<'PORTUGOL'
+          programa {
+              inteiro n = 0;
+              enquanto (n < 3) { n += 1; }
+              escreva("n=", n, "\n");
+          }
+          PORTUGOL
+          valgrind --leak-check=full \
+            --show-leak-kinds=definite,indirect \
+            --errors-for-leak-kinds=definite,indirect \
+            --error-exitcode=99 \
+            ./build-memoria/portugolc -o build-memoria/exemplo.cpp build-memoria/exemplo.por
+
+      - name: Verificar memoria no caminho de erro semantico
+        shell: bash
+        run: |
+          cat > build-memoria/invalido.por <<'PORTUGOL'
+          programa {
+              inteiro x = "texto";
+          }
+          PORTUGOL
+          set +e
+          valgrind --leak-check=full \
+            --show-leak-kinds=definite,indirect \
+            --errors-for-leak-kinds=definite,indirect \
+            --error-exitcode=99 \
+            ./build-memoria/portugolc -o build-memoria/invalido.cpp build-memoria/invalido.por
+          status=$?
+          set -e
+          test "$status" -eq 1
+          test ! -f build-memoria/invalido.cpp
