@@ -50,3 +50,11 @@ target_link_libraries(testes_semantico
     PRIVATE portugolc_core GTest::gtest_main)
 
 gtest_discover_tests(testes_semantico)
+
+add_executable(testes_codegen
+    codegen/codegen_test.cpp)
+
+target_link_libraries(testes_codegen
+    PRIVATE portugolc_core GTest::gtest_main)
+
+gtest_discover_tests(testes_codegen)

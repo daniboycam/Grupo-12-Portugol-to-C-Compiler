@@ -1,13 +1,16 @@
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include <system_error>
 
 #include "PortugolToC.tab.hpp"
 #include "portugol/tabela.hpp"
 #include "portugol/ast.hpp"
 #include "portugol/semantico.hpp"
+#include "portugol/codegen.hpp"
 
 extern int yylex();
 extern int yyparse();
@@ -141,16 +144,20 @@ int listarTokens() {
 
 // Modo padrao: entrega os tokens ao parser, verifica a AST com a analise
 // semantica e exibe a arvore validada.
-int analisar() {
+//
+// Com "saidaCpp" (opcao -o), gera o codigo C++ no arquivo indicado ("-" e a
+// saida padrao) em vez de exibir a tabela de simbolos e a AST.
+int analisar(const char* saidaCpp) {
+    const bool gerar = saidaCpp != nullptr;
     const int rc = yyparse();
-    portugol::tabela.imprimirTabela();
+    if (!gerar) portugol::tabela.imprimirTabela();
     if (rc != 0) {
         liberarAST(raizAST);
         raizAST = nullptr;
         std::cerr << "Falha na analise sintatica.\n";
         return 1;
     }
-    std::cout << "Analise sintatica concluida com sucesso.\n";
+    if (!gerar) std::cout << "Analise sintatica concluida com sucesso.\n";
 
     const int errosSemanticos = portugol::analisarSemantica(raizAST, std::cerr);
     if (errosSemanticos > 0) {
@@ -159,16 +166,35 @@ int analisar() {
         std::cerr << "Falha na analise semantica (" << errosSemanticos << " erro(s)).\n";
         return 1;
     }
-    std::cout << "Analise semantica concluida com sucesso.\n";
-    imprimirAST(raizAST);
+
+    int resultado = 0;
+    if (!gerar) {
+        std::cout << "Analise semantica concluida com sucesso.\n";
+        imprimirAST(raizAST);
+    } else {
+        const std::string codigo = portugol::gerarCodigoCpp(raizAST);
+        if (std::string(saidaCpp) == "-") {
+            std::cout << codigo;
+        } else {
+            std::ofstream arquivo(saidaCpp);
+            arquivo << codigo;
+            if (!arquivo) {
+                std::cerr << "erro: nao foi possivel escrever '" << saidaCpp << "'\n";
+                resultado = 2;
+            } else {
+                std::cerr << "Codigo C++ gerado em " << saidaCpp << "\n";
+            }
+        }
+    }
     liberarAST(raizAST);
     raizAST = nullptr;
-    return 0;
+    return resultado;
 }
 
 void uso(const char* programa) {
     std::cerr << "uso: " << programa << " [opcoes] [arquivo.por]\n\n"
               << "  -t, --tokens   lista os tokens reconhecidos (modo scanner)\n"
+              << "  -o <arquivo>   gera o codigo C++17 em <arquivo> (\"-\" = saida padrao)\n"
               << "  -h, --ajuda    mostra esta mensagem\n\n"
               << "Sem arquivo, le da entrada padrao.\n"
               << "Sem --tokens, executa as analises sintatica e semantica.\n";
@@ -179,11 +205,18 @@ void uso(const char* programa) {
 int main(int argc, char** argv) {
     bool modoScanner = false;
     const char* entrada = nullptr;
+    const char* saidaCpp = nullptr;
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
         if (arg == "-t" || arg == "--tokens") {
             modoScanner = true;
+        } else if (arg == "-o" || arg == "--saida") {
+            if (i + 1 >= argc) {
+                std::cerr << "erro: a opcao " << arg << " exige o nome do arquivo de saida\n";
+                return 2;
+            }
+            saidaCpp = argv[++i];
         } else if (arg == "-h" || arg == "--ajuda") {
             uso(argv[0]);
             return 0;
@@ -210,6 +243,14 @@ int main(int argc, char** argv) {
             std::cerr << "erro: '" << entrada << "' nao e um arquivo\n";
             return 2;
         }
+        // "-o x.por x.por" apagaria o programa Portugol ao gravar o C++.
+        std::error_code ec;
+        if (saidaCpp != nullptr && std::string(saidaCpp) != "-" &&
+            std::filesystem::equivalent(entrada, saidaCpp, ec)) {
+            std::cerr << "erro: o arquivo de saida '" << saidaCpp
+                      << "' e o proprio arquivo de entrada\n";
+            return 2;
+        }
         yyin = std::fopen(entrada, "r");
         if (yyin == nullptr) {
             std::cerr << "erro: nao foi possivel abrir '" << entrada << "'\n";
@@ -217,7 +258,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    const int resultado = modoScanner ? listarTokens() : analisar();
+    const int resultado = modoScanner ? listarTokens() : analisar(saidaCpp);
 
     if (yyin != nullptr && entrada != nullptr) {
         std::fclose(yyin);

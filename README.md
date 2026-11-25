@@ -78,6 +78,18 @@ Falha na analise semantica (4 erro(s)).
 
 Sao verificados: uso de variaveis e funcoes nao declaradas, redeclaracao no mesmo escopo, compatibilidade de tipos em inicializacoes, atribuicoes e expressoes (sao aceitas as conversoes `inteiro -> real` e `caracter -> cadeia`), chamadas de funcao (existencia, aridade e tipo dos argumentos), `retorne` (tipo compativel, `retorne;` so em funcoes `vazio` e retorno em todos os caminhos), `pare`/`continue` apenas dentro de lacos, indices de vetor inteiros e funcoes declaradas apenas no nivel do programa. As funcoes podem ser chamadas antes de sua definicao (inclusive recursivamente); variaveis precisam ser declaradas antes do uso.
 
+### Gerando codigo C++17 (`-o`)
+
+Com `-o <arquivo.cpp>`, um programa valido e traduzido para C++17 (use `-o -` para escrever na saida padrao):
+
+```bash
+./build/portugolc -o programa.cpp examples/lacos.por
+g++ -std=c++17 -Wall -Wextra -Wpedantic programa.cpp -o programa
+./programa
+```
+
+Traducao: `inteiro -> int`, `real -> double`, `cadeia -> std::string`, `caracter -> char`, `logico -> bool`, `vazio -> void`; `funcao principal()` vira `int main()` (um programa sem funcoes vira o corpo de `main`); `leia` -> `std::cin >>`, `escreva` -> `std::cout <<` (valores logicos saem como `verdadeiro`/`falso`); `se/senao`, `enquanto`, `para`, `pare`, `continue` e `retorne` viram `if/else`, `while`, `for`, `break`, `continue` e `return`. Variaveis sem inicializador recebem o valor padrao do tipo. Todo identificador ganha o prefixo `p_` (`x` vira `p_x`), entao nomes como `int`, `div`, `time` ou `EOF` nao colidem com o C++; uma variavel local que esconde outra de mesmo nome ganha nome proprio (`p2_x`), e um `caracter` usado onde se espera `cadeia` vira `std::string(1, c)`. O `-o` recusa gravar por cima do proprio arquivo de entrada. O codigo gerado compila sem warnings com `-Wall -Wextra -Wpedantic`.
+
 ### Modo scanner (`--tokens`)
 
 Com `-t` ou `--tokens`, o programa percorre a entrada apenas com o analisador lexico e lista os tokens reconhecidos:
