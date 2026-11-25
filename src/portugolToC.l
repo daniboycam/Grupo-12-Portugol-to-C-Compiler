@@ -85,11 +85,22 @@ static void erroLexico(const string& mensagem) {
     erroLexicoNaPosicao(yylineno, colunaToken, mensagem);
 }
 
-/// Executado antes de cada acao do Flex: registra a coluna inicial do token e
-/// avanca yycolumn pela quantidade de caracteres UTF-8 do lexema lido.
+/// Executado antes de cada acao do Flex: registra a coluna inicial do token,
+/// atualiza a localizacao usada pelo Bison (yylloc) e avanca yycolumn pela
+/// quantidade de caracteres UTF-8 do lexema lido.
+#ifdef YYLTYPE_IS_DECLARED
+#define YY_USER_ACTION \
+    colunaToken = yycolumn; \
+    yylloc.first_line = yylineno; \
+    yylloc.last_line = yylineno; \
+    yylloc.first_column = colunaToken; \
+    yycolumn += contarCaracteres(yytext, yyleng); \
+    yylloc.last_column = yycolumn;
+#else
 #define YY_USER_ACTION \
     colunaToken = yycolumn; \
     yycolumn += contarCaracteres(yytext, yyleng);
+#endif
 %}
 
 %option noyywrap

@@ -365,6 +365,61 @@ TEST(SemanticoDesvio, PareDentroDeLacoAninhadoEmSe) {
     esperarValido("programa {\n enquanto (verdadeiro) {\n  se (verdadeiro) { pare; }\n }\n}\n");
 }
 
+// ---- linha de origem em comandos multilinhas ---------------------------
+
+TEST(SemanticoLinhaOrigem, CondicionalMultilinhaApontaParaInicio) {
+    esperarErro(
+        "programa {\n"
+        " inteiro x = 1;\n"
+        " se (x) {\n"
+        "  escreva(1);\n"
+        "  escreva(2);\n"
+        " }\n"
+        "}\n",
+        3, "condicao do 'se' deve ser do tipo logico");
+}
+
+TEST(SemanticoLinhaOrigem, EnquantoMultilinhaApontaParaInicio) {
+    esperarErro(
+        "programa {\n"
+        " cadeia s = \"oi\";\n"
+        " enquanto (s) {\n"
+        "  escreva(s);\n"
+        " }\n"
+        "}\n",
+        3, "condicao do 'enquanto' deve ser do tipo logico");
+}
+
+TEST(SemanticoLinhaOrigem, ParaMultilinhaApontaParaInicio) {
+    esperarErro(
+        "programa {\n"
+        " para (inteiro i = 0; i; i += 1) {\n"
+        "  escreva(i);\n"
+        " }\n"
+        "}\n",
+        2, "condicao do 'para' deve ser do tipo logico");
+}
+
+TEST(SemanticoLinhaOrigem, AtribuicaoERetorneMultilinhaApontamParaInicio) {
+    esperarErro(
+        "programa {\n"
+        " inteiro x = 0;\n"
+        " x =\n"
+        "  \"texto\";\n"
+        "}\n",
+        3, "atribuir");
+
+    esperarErro(
+        "programa {\n"
+        " funcao vazio principal() { }\n"
+        " funcao inteiro f() {\n"
+        "  retorne\n"
+        "   \"texto\";\n"
+        " }\n"
+        "}\n",
+        4, "retorno da funcao 'f' deve ser do tipo inteiro");
+}
+
 // ---- varios erros de uma vez -------------------------------------------
 
 TEST(SemanticoRelatorio, RelataTodosOsErros) {
