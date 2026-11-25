@@ -23,6 +23,7 @@ static std::string tipoCorrente;
 }
 
 %defines
+%locations
 %define parse.error detailed
 
 // O yynerrs e global e nao volta a zero entre chamadas do yyparse. Sem este
@@ -194,6 +195,7 @@ funcao:
           tem_funcoes = true;
           if (std::string($3) == "principal") tem_principal = true;
           $$ = criarNoFuncao($2, $3, $5, $7);
+          $$->linha = @$.first_line;
           delete[] $3;
       }
     ;
@@ -227,40 +229,60 @@ parametro:
       tipo IDENTIFICADOR
       {
           $$ = criarNoParametro($1, $2);
+          $$->linha = @$.first_line;
           delete[] $2;
       }
     ;
 
 comando_retorno:
       KW_RETORNE expressao PONTO_VIRGULA
-      { $$ = criarNoRetorne($2); }
+      {
+          $$ = criarNoRetorne($2);
+          $$->linha = @$.first_line;
+      }
     | KW_RETORNE PONTO_VIRGULA
-      { $$ = criarNoRetorne(); }
+      {
+          $$ = criarNoRetorne();
+          $$->linha = @$.first_line;
+      }
     ;
 
 bloco:
       ABRE_CHAVE lista_itens FECHA_CHAVE
-      { $$ = $2; }
+      {
+          $2->linha = @$.first_line;
+          $$ = $2;
+      }
     ;
 
 comando_enquanto:
       KW_ENQUANTO ABRE_PAREN expressao FECHA_PAREN bloco
-      { $$ = criarNoEnquanto($3, $5); }
+      {
+          $$ = criarNoEnquanto($3, $5);
+          $$->linha = @$.first_line;
+      }
     ;
 
 comando_para:
       KW_PARA ABRE_PAREN inicializacao_para_opcional PONTO_VIRGULA expressao_opcional PONTO_VIRGULA passo_para_opcional FECHA_PAREN bloco
-      { $$ = criarNoPara($3, $5, $7, $9); }
+      {
+          $$ = criarNoPara($3, $5, $7, $9);
+          $$->linha = @$.first_line;
+      }
     ;
 
 inicializacao_para_opcional:
       %empty
       { $$ = nullptr; }
     | acesso operador_atribuicao expressao
-      { $$ = criarNoAtribuicao($2, $1, $3); }
+      {
+          $$ = criarNoAtribuicao($2, $1, $3);
+          $$->linha = @$.first_line;
+      }
     | tipo lista_declaradores
       {
           $2->op = $1;
+          $2->linha = @$.first_line;
           $$ = $2;
       }
     ;
@@ -276,14 +298,23 @@ passo_para_opcional:
       %empty
       { $$ = nullptr; }
     | acesso operador_atribuicao expressao
-      { $$ = criarNoAtribuicao($2, $1, $3); }
+      {
+          $$ = criarNoAtribuicao($2, $1, $3);
+          $$->linha = @$.first_line;
+      }
     ;
 
 comando_desvio:
       KW_PARE PONTO_VIRGULA
-      { $$ = criarNoDesvio(NO_PARE); }
+      {
+          $$ = criarNoDesvio(NO_PARE);
+          $$->linha = @$.first_line;
+      }
     | KW_CONTINUE PONTO_VIRGULA
-      { $$ = criarNoDesvio(NO_CONTINUE); }
+      {
+          $$ = criarNoDesvio(NO_CONTINUE);
+          $$->linha = @$.first_line;
+      }
     ;
 
 // se (expressao) { ... } senao { ... }
@@ -294,17 +325,29 @@ comando_desvio:
 // aninhar um bloco a cada condicao nova.
 comando_condicional:
       KW_SE ABRE_PAREN expressao FECHA_PAREN bloco
-      { $$ = criarNoSe($3, $5); }
+      {
+          $$ = criarNoSe($3, $5);
+          $$->linha = @$.first_line;
+      }
     | KW_SE ABRE_PAREN expressao FECHA_PAREN bloco KW_SENAO bloco
-      { $$ = criarNoSe($3, $5, $7); }
+      {
+          $$ = criarNoSe($3, $5, $7);
+          $$->linha = @$.first_line;
+      }
     | KW_SE ABRE_PAREN expressao FECHA_PAREN bloco KW_SENAO comando_condicional
-      { $$ = criarNoSe($3, $5, $7); }
+      {
+          $$ = criarNoSe($3, $5, $7);
+          $$->linha = @$.first_line;
+      }
     ;
 
 // Leitura: leia(<variavel>);  (<variavel> e um acesso, com ou sem indice)
 comando_leia:
       KW_LEIA ABRE_PAREN acesso FECHA_PAREN PONTO_VIRGULA
-      { $$ = criarNoLeia($3); }
+      {
+          $$ = criarNoLeia($3);
+          $$->linha = @$.first_line;
+      }
     ;
 
 // Escrita: escreva(<lista_expressoes>);
@@ -313,7 +356,10 @@ comando_leia:
 // e obrigatorio (lista_expressoes_escrita nao tem alternativa vazia).
 comando_escreva:
       KW_ESCREVA ABRE_PAREN lista_expressoes_escrita FECHA_PAREN PONTO_VIRGULA
-      { $$ = criarNoEscreva($3); }
+      {
+          $$ = criarNoEscreva($3);
+          $$->linha = @$.first_line;
+      }
     ;
 
 lista_expressoes_escrita:
@@ -334,6 +380,7 @@ declaracao_variavel:
       tipo lista_declaradores PONTO_VIRGULA
       {
           $2->op = $1;
+          $2->linha = @$.first_line;
           $$ = $2;
       }
     ;
@@ -359,13 +406,14 @@ lista_declaradores:
 declarador:
       IDENTIFICADOR dimensao_opcional inicializacao_opcional
       {
-          if (!portugol::tabela.inserirSimbolo($1, tipoCorrente, yylineno)) {
-              std::cerr << "erro semantico na linha " << yylineno
+          if (!portugol::tabela.inserirSimbolo($1, tipoCorrente, @1.first_line)) {
+              std::cerr << "erro semantico na linha " << @1.first_line
                         << ": identificador '" << $1
                         << "' ja declarado no mesmo escopo\n";
               ++num_erros_semanticos;
           }
           $$ = criarNoDeclarador($1, $2, $3);
+          $$->linha = @$.first_line;
           delete[] $1;
       }
     ;
@@ -387,7 +435,10 @@ inicializacao_opcional:
 // Comandos iniciais. Outros comandos ficam para as issues especificas.
 comando_atribuicao:
       acesso operador_atribuicao expressao PONTO_VIRGULA
-      { $$ = criarNoAtribuicao($2, $1, $3); }
+      {
+          $$ = criarNoAtribuicao($2, $1, $3);
+          $$->linha = @$.first_line;
+      }
     ;
 
 operador_atribuicao:
@@ -408,54 +459,57 @@ acesso:
       IDENTIFICADOR
       {
           $$ = criarNoId($1);
+          $$->linha = @$.first_line;
           delete[] $1;
       }
     | IDENTIFICADOR ABRE_COLCHETE expressao FECHA_COLCHETE
       {
           $$ = criarNoAcessoVetor($1, $3);
+          $$->linha = @$.first_line;
           delete[] $1;
       }
     ;
 
 // Expressoes usadas em inicializadores e atribuicoes.
 expressao:
-      NUM_INT                 { $$ = criarNoNum($1); }
-    | NUM_REAL                { $$ = criarNoReal($1); }
-    | LIT_STRING              { $$ = criarNoTexto($1); delete[] $1; }
-    | LIT_CHAR                { $$ = criarNoChar($1); }
-    | KW_VERDADEIRO           { $$ = criarNoLogico(true); }
-    | KW_FALSO                { $$ = criarNoLogico(false); }
+      NUM_INT                 { $$ = criarNoNum($1); $$->linha = @$.first_line; }
+    | NUM_REAL                { $$ = criarNoReal($1); $$->linha = @$.first_line; }
+    | LIT_STRING              { $$ = criarNoTexto($1); $$->linha = @$.first_line; delete[] $1; }
+    | LIT_CHAR                { $$ = criarNoChar($1); $$->linha = @$.first_line; }
+    | KW_VERDADEIRO           { $$ = criarNoLogico(true); $$->linha = @$.first_line; }
+    | KW_FALSO                { $$ = criarNoLogico(false); $$->linha = @$.first_line; }
     | acesso                  { $$ = $1; }
     | chamada_funcao          { $$ = $1; }
     | ABRE_PAREN expressao FECHA_PAREN { $$ = $2; }
-    | MAIS expressao          %prec UNARIO_MAIS  { $$ = criarNoOpUnaria("+", $2); }
-    | MENOS expressao         %prec UNARIO_MENOS { $$ = criarNoOpUnaria("-", $2); }
-    | NAO expressao           { $$ = criarNoOpUnaria("!", $2); }
-    | BIT_NAO expressao       { $$ = criarNoOpUnaria("~", $2); }
-    | expressao OU expressao          { $$ = criarNoOp("||", $1, $3); }
-    | expressao E expressao           { $$ = criarNoOp("&&", $1, $3); }
-    | expressao BIT_OU expressao      { $$ = criarNoOp("|", $1, $3); }
-    | expressao BIT_XOU expressao     { $$ = criarNoOp("^", $1, $3); }
-    | expressao BIT_E expressao       { $$ = criarNoOp("&", $1, $3); }
-    | expressao IGUAL expressao       { $$ = criarNoOp("==", $1, $3); }
-    | expressao DIFERENTE expressao   { $$ = criarNoOp("!=", $1, $3); }
-    | expressao MENOR expressao       { $$ = criarNoOp("<", $1, $3); }
-    | expressao MENOR_IGUAL expressao { $$ = criarNoOp("<=", $1, $3); }
-    | expressao MAIOR expressao       { $$ = criarNoOp(">", $1, $3); }
-    | expressao MAIOR_IGUAL expressao { $$ = criarNoOp(">=", $1, $3); }
-    | expressao DESLOCA_ESQ expressao { $$ = criarNoOp("<<", $1, $3); }
-    | expressao DESLOCA_DIR expressao { $$ = criarNoOp(">>", $1, $3); }
-    | expressao MAIS expressao        { $$ = criarNoOp("+", $1, $3); }
-    | expressao MENOS expressao       { $$ = criarNoOp("-", $1, $3); }
-    | expressao VEZES expressao       { $$ = criarNoOp("*", $1, $3); }
-    | expressao DIVIDIDO expressao    { $$ = criarNoOp("/", $1, $3); }
-    | expressao RESTO expressao       { $$ = criarNoOp("%", $1, $3); }
+    | MAIS expressao          %prec UNARIO_MAIS  { $$ = criarNoOpUnaria("+", $2); $$->linha = @$.first_line; }
+    | MENOS expressao         %prec UNARIO_MENOS { $$ = criarNoOpUnaria("-", $2); $$->linha = @$.first_line; }
+    | NAO expressao           { $$ = criarNoOpUnaria("!", $2); $$->linha = @$.first_line; }
+    | BIT_NAO expressao       { $$ = criarNoOpUnaria("~", $2); $$->linha = @$.first_line; }
+    | expressao OU expressao          { $$ = criarNoOp("||", $1, $3); $$->linha = @$.first_line; }
+    | expressao E expressao           { $$ = criarNoOp("&&", $1, $3); $$->linha = @$.first_line; }
+    | expressao BIT_OU expressao      { $$ = criarNoOp("|", $1, $3); $$->linha = @$.first_line; }
+    | expressao BIT_XOU expressao     { $$ = criarNoOp("^", $1, $3); $$->linha = @$.first_line; }
+    | expressao BIT_E expressao       { $$ = criarNoOp("&", $1, $3); $$->linha = @$.first_line; }
+    | expressao IGUAL expressao       { $$ = criarNoOp("==", $1, $3); $$->linha = @$.first_line; }
+    | expressao DIFERENTE expressao   { $$ = criarNoOp("!=", $1, $3); $$->linha = @$.first_line; }
+    | expressao MENOR expressao       { $$ = criarNoOp("<", $1, $3); $$->linha = @$.first_line; }
+    | expressao MENOR_IGUAL expressao { $$ = criarNoOp("<=", $1, $3); $$->linha = @$.first_line; }
+    | expressao MAIOR expressao       { $$ = criarNoOp(">", $1, $3); $$->linha = @$.first_line; }
+    | expressao MAIOR_IGUAL expressao { $$ = criarNoOp(">=", $1, $3); $$->linha = @$.first_line; }
+    | expressao DESLOCA_ESQ expressao { $$ = criarNoOp("<<", $1, $3); $$->linha = @$.first_line; }
+    | expressao DESLOCA_DIR expressao { $$ = criarNoOp(">>", $1, $3); $$->linha = @$.first_line; }
+    | expressao MAIS expressao        { $$ = criarNoOp("+", $1, $3); $$->linha = @$.first_line; }
+    | expressao MENOS expressao       { $$ = criarNoOp("-", $1, $3); $$->linha = @$.first_line; }
+    | expressao VEZES expressao       { $$ = criarNoOp("*", $1, $3); $$->linha = @$.first_line; }
+    | expressao DIVIDIDO expressao    { $$ = criarNoOp("/", $1, $3); $$->linha = @$.first_line; }
+    | expressao RESTO expressao       { $$ = criarNoOp("%", $1, $3); $$->linha = @$.first_line; }
     ;
 
 chamada_funcao:
       IDENTIFICADOR ABRE_PAREN lista_argumentos FECHA_PAREN
       {
           $$ = criarNoChamada($1, $3);
+          $$->linha = @$.first_line;
           delete[] $1;
       }
     ;

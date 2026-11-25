@@ -5,7 +5,17 @@
 
 NoAST* raizAST = nullptr;
 
+// Linha corrente do scanner (Flex, %option yylineno).
+extern int yylineno;
+
 namespace {
+
+// Aloca um no e registra a linha em que o parser estava ao reconhece-lo.
+NoAST* novoNo() {
+    NoAST* no = new NoAST();
+    no->linha = yylineno;
+    return no;
+}
 
 std::string indentar(int nivel) {
     if (nivel <= 0) {
@@ -68,49 +78,49 @@ std::string juntar(const std::vector<NoAST*>& nos, const std::string& separador)
 }  // namespace
 
 NoAST* criarNoNum(int valor) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_NUM;
     no->valor = valor;
     return no;
 }
 
 NoAST* criarNoReal(double valor) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_REAL;
     no->valorReal = valor;
     return no;
 }
 
 NoAST* criarNoTexto(const std::string& texto) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_STRING;
     no->nome = texto;
     return no;
 }
 
 NoAST* criarNoChar(char valor) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_CHAR;
     no->valorChar = valor;
     return no;
 }
 
 NoAST* criarNoLogico(bool valor) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_LOGICO;
     no->valor = valor ? 1 : 0;
     return no;
 }
 
 NoAST* criarNoId(const std::string& nome) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_ID;
     no->nome = nome;
     return no;
 }
 
 NoAST* criarNoAcessoVetor(const std::string& nome, NoAST* indice) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_ACESSO_VETOR;
     no->nome = nome;
     no->esq = indice;
@@ -118,7 +128,7 @@ NoAST* criarNoAcessoVetor(const std::string& nome, NoAST* indice) {
 }
 
 NoAST* criarNoOp(const std::string& op, NoAST* esq, NoAST* dir) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_OP;
     no->op = op;
     no->esq = esq;
@@ -131,7 +141,7 @@ NoAST* criarNoOp(char op, NoAST* esq, NoAST* dir) {
 }
 
 NoAST* criarNoOpUnaria(const std::string& op, NoAST* operando) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_OP_UNARIA;
     no->op = op;
     no->esq = operando;
@@ -139,7 +149,7 @@ NoAST* criarNoOpUnaria(const std::string& op, NoAST* operando) {
 }
 
 NoAST* criarNoDeclarador(const std::string& nome, int tamanhoVetor, NoAST* inicializador) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_DECLARADOR;
     no->nome = nome;
     no->valor = tamanhoVetor;
@@ -148,7 +158,7 @@ NoAST* criarNoDeclarador(const std::string& nome, int tamanhoVetor, NoAST* inici
 }
 
 NoAST* criarNoDeclVar(const std::string& tipoVar, NoAST* primeiroDeclarador) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_DECL_VAR;
     no->op = tipoVar;
     if (primeiroDeclarador != nullptr) {
@@ -158,7 +168,7 @@ NoAST* criarNoDeclVar(const std::string& tipoVar, NoAST* primeiroDeclarador) {
 }
 
 NoAST* criarNoAtribuicao(const std::string& op, NoAST* destino, NoAST* expressao) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_ATRIBUICAO;
     no->op = op;
     no->esq = destino;
@@ -167,13 +177,13 @@ NoAST* criarNoAtribuicao(const std::string& op, NoAST* destino, NoAST* expressao
 }
 
 NoAST* criarNoBloco(TipoNo tipo) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = tipo;
     return no;
 }
 
 NoAST* criarNoSe(NoAST* condicao, NoAST* blocoEntao, NoAST* ramoSenao) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_SE;
     no->esq = condicao;
     no->dir = blocoEntao;
@@ -182,7 +192,7 @@ NoAST* criarNoSe(NoAST* condicao, NoAST* blocoEntao, NoAST* ramoSenao) {
 }
 
 NoAST* criarNoEnquanto(NoAST* condicao, NoAST* corpo) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_ENQUANTO;
     no->esq = condicao;
     no->dir = corpo;
@@ -190,7 +200,7 @@ NoAST* criarNoEnquanto(NoAST* condicao, NoAST* corpo) {
 }
 
 NoAST* criarNoPara(NoAST* inicializacao, NoAST* condicao, NoAST* passo, NoAST* corpo) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_PARA;
     no->esq = inicializacao;
     no->dir = condicao;
@@ -202,14 +212,14 @@ NoAST* criarNoPara(NoAST* inicializacao, NoAST* condicao, NoAST* passo, NoAST* c
 }
 
 NoAST* criarNoDesvio(TipoNo tipo) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = tipo;
     return no;
 }
 
 NoAST* criarNoFuncao(const std::string& tipoRetorno, const std::string& nome,
                      NoAST* parametros, NoAST* corpo) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_FUNCAO;
     no->op = tipoRetorno;
     no->nome = nome;
@@ -219,7 +229,7 @@ NoAST* criarNoFuncao(const std::string& tipoRetorno, const std::string& nome,
 }
 
 NoAST* criarNoParametro(const std::string& tipo, const std::string& nome) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_PARAMETRO;
     no->op = tipo;
     no->nome = nome;
@@ -227,7 +237,7 @@ NoAST* criarNoParametro(const std::string& tipo, const std::string& nome) {
 }
 
 NoAST* criarNoChamada(const std::string& nome, NoAST* argumentos) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_CHAMADA;
     no->nome = nome;
     absorverFilhos(no, argumentos);
@@ -235,21 +245,21 @@ NoAST* criarNoChamada(const std::string& nome, NoAST* argumentos) {
 }
 
 NoAST* criarNoRetorne(NoAST* expressao) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_RETORNE;
     no->esq = expressao;
     return no;
 }
 
 NoAST* criarNoLeia(NoAST* destino) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_LEIA;
     no->esq = destino;
     return no;
 }
 
 NoAST* criarNoEscreva(NoAST* argumentos) {
-    NoAST* no = new NoAST();
+    NoAST* no = novoNo();
     no->tipo = NO_ESCREVA;
     absorverFilhos(no, argumentos);
     return no;
