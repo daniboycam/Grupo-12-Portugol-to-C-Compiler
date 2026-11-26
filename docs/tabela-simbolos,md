@@ -1,0 +1,20 @@
+# Tabela de Símbolos
+
+A tabela de símbolos armazena os identificadores declarados no programa e seus tipos, suportando escopos aninhados, sombreamento (shadowing) e metadados de funções e vetores.
+
+## Estrutura
+
+`include/portugol/tabela.hpp`
+
+```cpp
+enum class CategoriaSimbolo { VARIAVEL, PARAMETRO, FUNCAO };
+
+struct Simbolo {
+    std::string nome;
+    std::string tipo;
+    int linha;
+    CategoriaSimbolo categoria;
+    int dimensao;
+    std::string tipo_retorno;
+    std::vector<std::string> tipos_parametros;
+};
