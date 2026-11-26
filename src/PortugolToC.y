@@ -1,8 +1,9 @@
 %{
 #include <iostream>
 #include <string>
-#include "portugol/ast.hpp"
+#include <vector>
 
+#include "portugol/ast.hpp"
 #include "portugol/tabela.hpp"
 
 int yylex();
@@ -16,6 +17,9 @@ static int  num_erros_semanticos = 0;
 
 // Tipo da ultima declaracao reduzida em 'tipo:'; usado por 'declarador:'.
 static std::string tipoCorrente;
+
+// Acumula os tipos dos parametros da funcao atual para registrar a assinatura.
+static std::vector<std::string> tiposParametrosAtuais;
 %}
 
 %code requires {
@@ -35,6 +39,7 @@ static std::string tipoCorrente;
     tem_principal = false;
     num_erros_semanticos = 0;
     tipoCorrente.clear();
+    tiposParametrosAtuais.clear();
     portugol::tabela.limpar();
     liberarAST(raizAST);
     raizAST = nullptr;
@@ -190,11 +195,25 @@ item:
     ;
 
 funcao:
-      KW_FUNCAO tipo_retorno IDENTIFICADOR ABRE_PAREN lista_parametros FECHA_PAREN bloco
+      KW_FUNCAO tipo_retorno IDENTIFICADOR
       {
+          tiposParametrosAtuais.clear();
+          portugol::tabela.entrarEscopo($3);
+      }
+      ABRE_PAREN lista_parametros FECHA_PAREN bloco
+      {
+          portugol::tabela.sairEscopo();
+          
+          if (!portugol::tabela.inserirSimbolo($3, "funcao", @3.first_line, 
+                  portugol::CategoriaSimbolo::FUNCAO, 0, $2, tiposParametrosAtuais)) {
+              std::cerr << "erro semantico na linha " << @3.first_line
+                        << ": funcao '" << $3 << "' ja declarada no mesmo escopo\n";
+              ++num_erros_semanticos;
+          }
+
           tem_funcoes = true;
           if (std::string($3) == "principal") tem_principal = true;
-          $$ = criarNoFuncao($2, $3, $5, $7);
+          $$ = criarNoFuncao($2, $3, $6, $8);
           $$->linha = @$.first_line;
           delete[] $3;
       }
@@ -228,6 +247,13 @@ parametros:
 parametro:
       tipo IDENTIFICADOR
       {
+          if (!portugol::tabela.inserirSimbolo($2, $1, @2.first_line, portugol::CategoriaSimbolo::PARAMETRO)) {
+              std::cerr << "erro semantico na linha " << @2.first_line
+                        << ": parametro '" << $2 << "' ja declarado no mesmo escopo\n";
+              ++num_erros_semanticos;
+          }
+          tiposParametrosAtuais.push_back($1);
+          
           $$ = criarNoParametro($1, $2);
           $$->linha = @$.first_line;
           delete[] $2;
@@ -248,10 +274,15 @@ comando_retorno:
     ;
 
 bloco:
-      ABRE_CHAVE lista_itens FECHA_CHAVE
+      ABRE_CHAVE
       {
-          $2->linha = @$.first_line;
-          $$ = $2;
+          portugol::tabela.entrarEscopo();
+      }
+      lista_itens FECHA_CHAVE
+      {
+          portugol::tabela.sairEscopo();
+          $3->linha = @$.first_line;
+          $$ = $3;
       }
     ;
 
@@ -317,12 +348,6 @@ comando_desvio:
       }
     ;
 
-// se (expressao) { ... } senao { ... }
-//
-// O bloco e obrigatorio nos dois lados, entao o dangling-else nao aparece:
-// quando o parser ve o "senao", o bloco anterior ja foi fechado pela chave.
-// A terceira alternativa e o encadeamento "senao se", que evita ter de
-// aninhar um bloco a cada condicao nova.
 comando_condicional:
       KW_SE ABRE_PAREN expressao FECHA_PAREN bloco
       {
@@ -406,7 +431,9 @@ lista_declaradores:
 declarador:
       IDENTIFICADOR dimensao_opcional inicializacao_opcional
       {
-          if (!portugol::tabela.inserirSimbolo($1, tipoCorrente, @1.first_line)) {
+          int dim_tabela = ($2 > 0) ? $2 : 0;
+          if (!portugol::tabela.inserirSimbolo($1, tipoCorrente, @1.first_line, 
+                  portugol::CategoriaSimbolo::VARIAVEL, dim_tabela)) {
               std::cerr << "erro semantico na linha " << @1.first_line
                         << ": identificador '" << $1
                         << "' ja declarado no mesmo escopo\n";
