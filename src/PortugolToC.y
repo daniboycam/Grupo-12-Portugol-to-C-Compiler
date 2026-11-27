@@ -27,7 +27,7 @@ static void declararNaTabela(const std::string& nome, const std::string& tipo, i
     if (!portugol::tabela.inserirSimbolo(nome, tipo, linha, categoria, dimensao,
                                          tipoRetorno, tiposParametros)) {
         const portugol::Simbolo* anterior = portugol::tabela.buscarSimboloEscopoAtual(nome);
-        std::cerr << "erro semantico na linha " << linha << ": identificador '" << nome
+        std::cerr << "Erro semântico na linha " << linha << ": identificador '" << nome
                   << "' ja declarado no mesmo escopo (linha " << anterior->linha << ")\n";
         ++num_erros_semanticos;
     }
@@ -43,6 +43,9 @@ static void declararNaTabela(const std::string& nome, const std::string& tipo, i
 // driver usa esta contagem para dizer qual analise falhou.
 %code provides {
     int errosDeclaracaoParser();
+    // Definidas no scanner (portugolToC.l).
+    int errosLexicos();
+    void zerarErrosLexicos();
 }
 
 %defines
@@ -57,6 +60,7 @@ static void declararNaTabela(const std::string& nome, const std::string& tipo, i
     tem_funcoes = false;
     tem_principal = false;
     num_erros_semanticos = 0;
+    zerarErrosLexicos();
     tipoCorrente.clear();
     portugol::tabela.limpar();
     liberarAST(raizAST);
