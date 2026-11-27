@@ -17,6 +17,7 @@ extern int yyparse();
 extern int yylineno;
 extern char* yytext;
 extern FILE* yyin;
+extern int yynerrs;
 
 namespace {
 
@@ -154,7 +155,14 @@ int analisar(const char* saidaCpp) {
     if (rc != 0) {
         liberarAST(raizAST);
         raizAST = nullptr;
-        std::cerr << "Falha na analise sintatica.\n";
+        // Sem erro de sintaxe, a falha veio so de redeclaracoes, que a tabela
+        // de simbolos do parser acusa: sao erros semanticos.
+        const int redeclaracoes = errosDeclaracaoParser();
+        if (yynerrs == 0 && redeclaracoes > 0) {
+            std::cerr << "Falha na analise semantica (" << redeclaracoes << " erro(s)).\n";
+        } else {
+            std::cerr << "Falha na analise sintatica.\n";
+        }
         return 1;
     }
     if (!gerar) std::cout << "Analise sintatica concluida com sucesso.\n";

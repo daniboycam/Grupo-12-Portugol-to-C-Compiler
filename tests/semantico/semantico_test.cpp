@@ -60,9 +60,16 @@ void esperarValido(const char* fonte) {
     EXPECT_EQ(r.mensagens, "");
 }
 
+// Analisa uma AST montada a mao, sem passar pelo parser, e a libera.
+Resultado analisarArvore(NoAST* raiz) {
+    std::ostringstream saida;
+    const int erros = portugol::analisarSemantica(raiz, saida);
+    liberarAST(raiz);
+    return {erros, saida.str()};
+}
+
 // Espera ao menos um erro contendo o trecho, na linha informada.
-void esperarErro(const char* fonte, int linha, const std::string& trecho) {
-    const Resultado r = analisar(fonte);
+void esperarErroEm(const Resultado& r, int linha, const std::string& trecho) {
     EXPECT_GT(r.erros, 0) << "nenhum erro relatado";
     const std::string prefixo = "Erro semântico na linha " + std::to_string(linha) + ": ";
     bool achou = false;
@@ -72,6 +79,18 @@ void esperarErro(const char* fonte, int linha, const std::string& trecho) {
     }
     EXPECT_TRUE(achou) << "esperado '" << trecho << "' na linha " << linha << "; obtido:\n"
                        << r.mensagens;
+}
+
+void esperarErro(const char* fonte, int linha, const std::string& trecho) {
+    esperarErroEm(analisar(fonte), linha, trecho);
+}
+
+// Funcao "tipo nome(params) { }" na linha dada, para montar ASTs a mao.
+NoAST* funcaoVazia(const std::string& tipo, const std::string& nome, NoAST* params, int linha) {
+    NoAST* f = criarNoFuncao(tipo, nome, params != nullptr ? params : criarNoBloco(),
+                             criarNoBloco());
+    f->linha = linha;
+    return f;
 }
 
 // ---- programas validos -------------------------------------------------
@@ -166,8 +185,31 @@ TEST(SemanticoDeclaracao, VariavelDoParaNaoVazaDoLaco) {
                 "variavel 'k' nao declarada");
 }
 
-// Parametro repetido e funcao declarada duas vezes sao barrados antes, pela
-// tabela de simbolos do parser; esses casos estao em tests/tabela/.
+// Parametro repetido e funcao declarada duas vezes ja sao barrados pela
+// tabela de simbolos do parser (tests/tabela/). A analise semantica nao
+// depende de quem montou a arvore, entao continua tratando esses casos; os
+// testes abaixo montam a AST diretamente para exercita-los.
+
+TEST(SemanticoDeclaracao, ParametroRepetido) {
+    NoAST* params = criarNoBloco();
+    for (int i = 0; i < 2; ++i) {
+        NoAST* p = criarNoParametro("inteiro", "a");
+        p->linha = 3;
+        adicionarFilho(params, p);
+    }
+    NoAST* programa = criarNoBloco(NO_PROGRAMA);
+    adicionarFilho(programa, funcaoVazia("vazio", "principal", nullptr, 2));
+    adicionarFilho(programa, funcaoVazia("vazio", "f", params, 3));
+    esperarErroEm(analisarArvore(programa), 3, "parametro 'a' repetido na funcao 'f'");
+}
+
+TEST(SemanticoDeclaracao, FuncaoDuplicada) {
+    NoAST* programa = criarNoBloco(NO_PROGRAMA);
+    adicionarFilho(programa, funcaoVazia("vazio", "principal", nullptr, 2));
+    adicionarFilho(programa, funcaoVazia("vazio", "f", nullptr, 3));
+    adicionarFilho(programa, funcaoVazia("vazio", "f", nullptr, 4));
+    esperarErroEm(analisarArvore(programa), 4, "'f' ja declarado");
+}
 
 TEST(SemanticoDeclaracao, FuncaoDentroDeFuncao) {
     esperarErro(

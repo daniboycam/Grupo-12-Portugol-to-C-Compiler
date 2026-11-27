@@ -38,6 +38,13 @@ static void declararNaTabela(const std::string& nome, const std::string& tipo, i
     struct NoAST;
 }
 
+// Redeclaracoes encontradas pela tabela de simbolos na ultima analise. Elas
+// fazem o yyparse() falhar, mas sao erros semanticos, nao de sintaxe; o
+// driver usa esta contagem para dizer qual analise falhou.
+%code provides {
+    int errosDeclaracaoParser();
+}
+
 %defines
 %locations
 %define parse.error detailed
@@ -135,6 +142,7 @@ programa:
       {
           if (tem_funcoes && !tem_principal) {
               yyerror("funcao principal() nao definida");
+              ++yynerrs;  // conta como erro de sintaxe para o driver
               liberarAST($3);
               raizAST = nullptr;
               YYABORT;
@@ -156,6 +164,7 @@ programa:
       {
           if (tem_funcoes && !tem_principal) {
               yyerror("funcao principal() nao definida");
+              ++yynerrs;  // conta como erro de sintaxe para o driver
               liberarAST($1);
               raizAST = nullptr;
               YYABORT;
@@ -595,6 +604,8 @@ argumentos:
     ;
 
 %%
+
+int errosDeclaracaoParser() { return num_erros_semanticos; }
 
 void yyerror(const char* s) {
     extern int yylineno;
