@@ -84,6 +84,8 @@ INSTANTIATE_TEST_SUITE_P(
         Caso{"FinaisDeLinhaCrlf", "tests/integracao/entradas/finais_de_linha_crlf.por", ""},
         Caso{"ExemploCondicional", "examples/condicional.por", ""},
         Caso{"ExemploLacos", "examples/lacos.por", ""},
+        Caso{"ExemploLexico", "examples/exemplo.por", ""},
+        Caso{"ExemploDemonstracao", "examples/demonstracao.por", ""},
         Caso{"FixtureMinima", "tests/sintatico/entradas/valido_minimo.por", ""},
         Caso{"FixtureExpressao", "tests/sintatico/entradas/valido_expressao.por", ""}),
     nomeDoCaso);

@@ -216,6 +216,26 @@ TEST(E2ECLI, CaracterConvertidoParaCadeia) {
         "}\n"), "a!\n");
 }
 
+// O programa de demonstracao do README precisa continuar funcionando.
+TEST(E2ECLI, ExemploDeDemonstracao) {
+    EXIGIR_GPP();
+    const std::string fonte = ler(fs::path(DIRETORIO_RAIZ) / "examples" / "demonstracao.por");
+    ASSERT_FALSE(fonte.empty());
+    conferirExecucao(compilarExecutar(fonte, "Ana 6\n"),
+        "Ola, Ana!\n"
+        "fatorial(6) = 720 em 6 chamadas\n"
+        "primos: 2 3 5 7 11 13 17 19 23 29\n"
+        "soma dos pares ate 20 = 110\n"
+        "7/2=3 7.0/2=3.5 7%3=1\n"
+        "bits: 2 7 5 32 16 -1\n"
+        "logico: verdadeiro verdadeiro verdadeiro\n"
+        "area(2) = 12.5664\n"
+        "sombreado: xyz\n"
+        "externo: xy\n"
+        "x interno = 11\n"
+        "x externo = 1\n");
+}
+
 // ---- Rejeicoes da CLI e da analise semantica ----
 
 TEST(E2ECLI, RejeitaSobrescreverArquivoDeEntrada) {

@@ -15,7 +15,7 @@ FLEX       ?= flex
 LEX_SRC    := src/portugolToC.l
 LEX_OUT    := $(BUILD)/lex.yy.cpp
 
-.PHONY: all clean
+.PHONY: all clean test
 
 all: $(BIN)
 
@@ -31,5 +31,14 @@ $(BIN): $(SRCS) $(BISON_OUT) $(LEX_OUT) | $(BUILD)
 $(BUILD):
 	mkdir -p $(BUILD)
 
+# Os testes usam GoogleTest/CTest, configurados pelo CMake; este alvo so
+# delega, numa pasta propria para nao misturar com o build do Makefile.
+TEST_BUILD := build-testes
+
+test:
+	cmake -S . -B $(TEST_BUILD)
+	cmake --build $(TEST_BUILD) --parallel
+	ctest --test-dir $(TEST_BUILD) --output-on-failure
+
 clean:
-	rm -rf $(BUILD)
+	rm -rf $(BUILD) $(TEST_BUILD)

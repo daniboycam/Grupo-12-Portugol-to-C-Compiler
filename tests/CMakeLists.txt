@@ -75,7 +75,8 @@ target_link_libraries(testes_e2e
     PRIVATE GTest::gtest_main)
 
 target_compile_definitions(testes_e2e
-    PRIVATE PORTUGOLC_BIN="$<TARGET_FILE:portugolc>")
+    PRIVATE PORTUGOLC_BIN="$<TARGET_FILE:portugolc>"
+            DIRETORIO_RAIZ="${CMAKE_SOURCE_DIR}")
 
 add_dependencies(testes_e2e portugolc)
 
