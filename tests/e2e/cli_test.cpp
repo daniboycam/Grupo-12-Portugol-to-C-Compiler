@@ -265,6 +265,14 @@ TEST(E2ECLI, RedeclaracaoFalhaNaAnaliseSemantica) {
         "Falha na analise semantica (1 erro(s))");
 }
 
+// O caractere invalido e ignorado para o parse continuar, mas o programa nao
+// pode virar C++.
+TEST(E2ECLI, ErroLexicoRecusaOPrograma) {
+    conferirErroSemantico(
+        "programa {\n inteiro x = 1; @\n escreva(x);\n}\n",
+        "Falha na analise lexica (1 erro(s))");
+}
+
 TEST(E2ECLI, ErroDeSintaxeContinuaSintatico) {
     conferirErroSemantico(
         "programa {\n inteiro x;\n inteiro x;\n funcao vazio f() { }\n}\n",

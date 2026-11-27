@@ -43,6 +43,9 @@ static void declararNaTabela(const std::string& nome, const std::string& tipo, i
 // driver usa esta contagem para dizer qual analise falhou.
 %code provides {
     int errosDeclaracaoParser();
+    // Definidas no scanner (portugolToC.l).
+    int errosLexicos();
+    void zerarErrosLexicos();
 }
 
 %defines
@@ -57,6 +60,7 @@ static void declararNaTabela(const std::string& nome, const std::string& tipo, i
     tem_funcoes = false;
     tem_principal = false;
     num_erros_semanticos = 0;
+    zerarErrosLexicos();
     tipoCorrente.clear();
     portugol::tabela.limpar();
     liberarAST(raizAST);

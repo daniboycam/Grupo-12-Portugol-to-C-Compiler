@@ -140,7 +140,7 @@ int listarTokens() {
     }
 
     std::cout << "\n" << total << " tokens reconhecidos.\n";
-    return 0;
+    return errosLexicos() > 0 ? 1 : 0;
 }
 
 // Modo padrao: entrega os tokens ao parser, verifica a AST com a analise
@@ -152,6 +152,14 @@ int analisar(const char* saidaCpp) {
     const bool gerar = saidaCpp != nullptr;
     const int rc = yyparse();
     if (!gerar) portugol::tabela.imprimirTabela();
+    // Um erro lexico nao interrompe o parse (o caractere e ignorado), mas o
+    // programa nao pode ser aceito.
+    if (errosLexicos() > 0) {
+        liberarAST(raizAST);
+        raizAST = nullptr;
+        std::cerr << "Falha na analise lexica (" << errosLexicos() << " erro(s)).\n";
+        return 1;
+    }
     if (rc != 0) {
         liberarAST(raizAST);
         raizAST = nullptr;
