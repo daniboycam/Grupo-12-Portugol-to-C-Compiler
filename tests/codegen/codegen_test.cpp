@@ -326,6 +326,27 @@ TEST(CodegenExecucao, VariavelInternaUsaAExternaNoInicializador) {
     EXPECT_EQ(saida, "11 4\n");
 }
 
+// Desde a #64 a tabela do parser aceita esconder nomes em blocos internos;
+// cada nivel precisa virar uma variavel propria no C++.
+TEST(CodegenExecucao, SombreamentoEmBlocosInternos) {
+    EXIGIR_COMPILADOR();
+    const std::string saida = compilarEExecutar(gerar(
+        "programa {\n"
+        " inteiro x = 1;\n"
+        " cadeia s = \"fora\";\n"
+        " se (x == 1) {\n"
+        "  inteiro x = 2;\n"
+        "  se (x == 2) { inteiro x = x + 1; escreva(x); }\n"
+        "  escreva(x);\n"
+        " } senao { inteiro x = 9; escreva(x); }\n"
+        " escreva(x, \" \");\n"
+        " para (inteiro x = x * 7; x < 9; x += 1) { escreva(x); }\n"
+        " enquanto (verdadeiro) { cadeia s = s + '!'; escreva(\" \", s); pare; }\n"
+        " escreva(\" \", x, s, \"\\n\");\n"
+        "}\n"));
+    EXPECT_EQ(saida, "321 78 fora! 1fora\n");
+}
+
 TEST(CodegenExecucao, NomesDaBibliotecaPadraoEMacros) {
     EXIGIR_COMPILADOR();
     const std::string saida = compilarEExecutar(gerar(

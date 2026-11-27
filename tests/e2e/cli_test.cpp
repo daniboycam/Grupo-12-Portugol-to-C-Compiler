@@ -237,6 +237,20 @@ TEST(E2ECLI, RejeitaTipoIncompativel) {
         "Falha na analise semantica");
 }
 
+// A redeclaracao e acusada pela tabela de simbolos ainda no parser, mas e um
+// erro semantico e deve ser relatado como tal.
+TEST(E2ECLI, RedeclaracaoFalhaNaAnaliseSemantica) {
+    conferirErroSemantico(
+        "programa {\n inteiro x;\n inteiro x;\n}\n",
+        "Falha na analise semantica (1 erro(s))");
+}
+
+TEST(E2ECLI, ErroDeSintaxeContinuaSintatico) {
+    conferirErroSemantico(
+        "programa {\n inteiro x;\n inteiro x;\n funcao vazio f() { }\n}\n",
+        "Falha na analise sintatica");
+}
+
 TEST(E2ECLI, RejeitaVariavelNaoDeclarada) {
     conferirErroSemantico(
         "programa {\n escreva(variavelInexistente);\n}\n",
