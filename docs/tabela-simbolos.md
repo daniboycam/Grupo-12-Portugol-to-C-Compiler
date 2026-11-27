@@ -59,7 +59,7 @@ A função entra na tabela no escopo de fora depois que o corpo é analisado, j�
 A redeclaração é relatada pelo parser com a linha da declaração nova e a da anterior:
 
 ```
-erro semantico na linha 4: identificador 'y' ja declarado no mesmo escopo (linha 3)
+Erro semântico na linha 4: identificador 'y' ja declarado no mesmo escopo (linha 3)
 ```
 
 ## Exemplo

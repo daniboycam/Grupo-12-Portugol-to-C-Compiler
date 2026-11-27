@@ -154,7 +154,7 @@ void esperarValido(const char* fonte) {
 void esperarRedeclaracao(const char* fonte, int linha, const std::string& nome) {
     const Resultado r = analisar(fonte);
     EXPECT_NE(r.codigo, 0);
-    const std::string esperado = "erro semantico na linha " + std::to_string(linha) +
+    const std::string esperado = "Erro semântico na linha " + std::to_string(linha) +
                                  ": identificador '" + nome + "' ja declarado no mesmo escopo";
     EXPECT_NE(r.mensagens.find(esperado), std::string::npos)
         << "esperado: " << esperado << "\nobtido:\n" << r.mensagens;

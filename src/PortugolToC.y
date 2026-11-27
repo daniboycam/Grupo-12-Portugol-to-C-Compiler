@@ -27,7 +27,7 @@ static void declararNaTabela(const std::string& nome, const std::string& tipo, i
     if (!portugol::tabela.inserirSimbolo(nome, tipo, linha, categoria, dimensao,
                                          tipoRetorno, tiposParametros)) {
         const portugol::Simbolo* anterior = portugol::tabela.buscarSimboloEscopoAtual(nome);
-        std::cerr << "erro semantico na linha " << linha << ": identificador '" << nome
+        std::cerr << "Erro semântico na linha " << linha << ": identificador '" << nome
                   << "' ja declarado no mesmo escopo (linha " << anterior->linha << ")\n";
         ++num_erros_semanticos;
     }
