@@ -1,6 +1,9 @@
 # Grupo-12-Portugol-to-C-Compiler
 
-Compilador de **Portugol** para **C++**, desenvolvido na disciplina de Compiladores.
+Compilador de **Portugol** para **C++17**, desenvolvido na disciplina de Compiladores 1. Le um programa `.por`, faz as analises lexica (Flex), sintatica (Bison) e semantica, e gera um programa C++17 que compila sem warnings.
+
+- **Visao geral do projeto** (estrutura, decisoes tecnicas, sprints, problemas e solucoes): [docs/relatorio-final.md](docs/relatorio-final.md)
+- **Demonstracao passo a passo** (`.por` -> `.cpp` -> executavel): [docs/demonstracao.md](docs/demonstracao.md)
 
 ## Integrantes
 
@@ -10,11 +13,11 @@ Compilador de **Portugol** para **C++**, desenvolvido na disciplina de Compilado
 ## Estrutura do projeto
 
 ```
-docs/               documentacao e especificacoes das gramaticas (lexica e sintatica)
-examples/           programas de exemplo em Portugol (.por)
-include/portugol/   cabecalhos publicos (tokens, AST e tabela de simbolos)
-src/                implementacao (C++, Flex e Bison)
-tests/              testes automatizados (lexico, sintatico e integracao)
+docs/               relatorio final, demonstracao e especificacoes (gramaticas, tabela, E/S)
+examples/           programas de exemplo em Portugol (.por), incluindo demonstracao.por
+include/portugol/   cabecalhos publicos (tokens, AST, tabela de simbolos, semantico, gerador)
+src/                implementacao: lexer (Flex), parser (Bison), AST, tabela, semantico, gerador, CLI
+tests/              testes automatizados (lexico, sintatico, integracao, tabela, semantico, gerador, E2E)
 ```
 
 ## Compilando
@@ -116,14 +119,22 @@ Apos compilar com CMake, execute a suite de testes automatizados (GoogleTest / C
 ctest --test-dir build --output-on-failure
 ```
 
-Ou via Makefile:
+Ou via Makefile (que usa o CMake por baixo, numa pasta `build-testes/`):
 
 ```bash
 make test
 ```
 
+O CI do GitHub Actions roda a suite a cada push e pull request e verifica vazamentos de memoria com o Valgrind.
+
+## Limitacoes
+
+Vetores sao unidimensionais, com tamanho literal, e nao podem ser inicializados na declaracao nem passados como parametro ou devolvidos por funcoes. Nao ha `faca ... enquanto`, `escolha` nem constantes, e `leia` le uma `cadeia` ate o primeiro espaco. Detalhes em [docs/relatorio-final.md](docs/relatorio-final.md#7-limitações-conhecidas).
+
 ## Documentacao
 
+- [Relatorio final](docs/relatorio-final.md)
+- [Demonstracao](docs/demonstracao.md)
 - [Gramatica Lexica](docs/gramatica-lexica.md)
 - [Gramatica Sintatica](docs/gramatica-sintatica.md)
 - [Subprogramas e Modularizacao](docs/gramatica-subprogramas.md)
