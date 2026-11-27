@@ -1,6 +1,9 @@
 # Grupo-12-Portugol-to-C-Compiler
 
-Compilador de **Portugol** para **C++**, desenvolvido na disciplina de Compiladores.
+Compilador de **Portugol** para **C++17**, desenvolvido na disciplina de Compiladores 1. Le um programa `.por`, faz as analises lexica (Flex), sintatica (Bison) e semantica, e gera um programa C++17 que compila sem warnings.
+
+- **Visao geral do projeto** (estrutura, decisoes tecnicas, sprints, problemas e solucoes): [docs/relatorio-final.md](docs/relatorio-final.md)
+- **Demonstracao passo a passo** (`.por` -> `.cpp` -> executavel): [docs/demonstracao.md](docs/demonstracao.md)
 
 ## Integrantes
 
@@ -10,11 +13,11 @@ Compilador de **Portugol** para **C++**, desenvolvido na disciplina de Compilado
 ## Estrutura do projeto
 
 ```
-docs/               documentacao e especificacoes das gramaticas (lexica e sintatica)
-examples/           programas de exemplo em Portugol (.por)
-include/portugol/   cabecalhos publicos (tokens, AST e tabela de simbolos)
-src/                implementacao (C++, Flex e Bison)
-tests/              testes automatizados (lexico, sintatico e integracao)
+docs/               relatorio final, demonstracao e especificacoes (gramaticas, tabela, E/S)
+examples/           programas de exemplo em Portugol (.por), incluindo demonstracao.por
+include/portugol/   cabecalhos publicos (tokens, AST, tabela de simbolos, semantico, gerador)
+src/                implementacao: lexer (Flex), parser (Bison), AST, tabela, semantico, gerador, CLI
+tests/              testes automatizados (lexico, sintatico, integracao, tabela, semantico, gerador, E2E)
 ```
 
 ## Compilando
@@ -36,7 +39,7 @@ Os dois caminhos geram o binario em `build/portugolc`.
 
 ## Usando
 
-### Analise sintatica, Tabela de Simbolos e AST (modo padrao)
+### Analise sintatica, analise semantica, Tabela de Simbolos e AST (modo padrao)
 
 Sem `--tokens`, o compilador executa a analise lexica e sintatica completa, exibe a Tabela de Simbolos e imprime a Arvore Sintatica Abstrata (AST) em formato S-expression:
 
@@ -46,11 +49,12 @@ Sem `--tokens`, o compilador executa a analise lexica e sintatica completa, exib
 
 ```
 ===== Tabela de Simbolos =====
-nome	tipo	linha
-nota	inteiro	3
-conceito	cadeia	4
+nome	categoria	tipo	escopo	linha
+nota	variavel	inteiro	global	3
+conceito	variavel	cadeia	global	4
 ==============================
 Analise sintatica concluida com sucesso.
+Analise semantica concluida com sucesso.
 (programa
   (decl inteiro (nota = 75))
   (decl cadeia (conceito = ""))
@@ -62,6 +66,32 @@ Analise sintatica concluida com sucesso.
   )
 )
 ```
+
+### Erros semanticos
+
+Depois do parser, a analise semantica percorre a AST e relata todos os erros encontrados, com a linha de origem, terminando com codigo de saida `1`:
+
+```
+Erro semântico na linha 2: nao e possivel inicializar 'x' (inteiro) com um valor do tipo cadeia
+Erro semântico na linha 3: condicao do 'se' deve ser do tipo logico (recebeu inteiro)
+Erro semântico na linha 4: 'pare' so pode ser usado dentro de um laco (enquanto/para)
+Erro semântico na linha 6: variavel 'y' nao declarada
+Falha na analise semantica (4 erro(s)).
+```
+
+Sao verificados: uso de variaveis e funcoes nao declaradas, redeclaracao no mesmo escopo, compatibilidade de tipos em inicializacoes, atribuicoes e expressoes (sao aceitas as conversoes `inteiro -> real` e `caracter -> cadeia`), chamadas de funcao (existencia, aridade e tipo dos argumentos), `retorne` (tipo compativel, `retorne;` so em funcoes `vazio` e retorno em todos os caminhos), `pare`/`continue` apenas dentro de lacos, indices de vetor inteiros e funcoes declaradas apenas no nivel do programa. As funcoes podem ser chamadas antes de sua definicao (inclusive recursivamente); variaveis precisam ser declaradas antes do uso.
+
+### Gerando codigo C++17 (`-o`)
+
+Com `-o <arquivo.cpp>`, um programa valido e traduzido para C++17 (use `-o -` para escrever na saida padrao):
+
+```bash
+./build/portugolc -o programa.cpp examples/lacos.por
+g++ -std=c++17 -Wall -Wextra -Wpedantic programa.cpp -o programa
+./programa
+```
+
+Traducao: `inteiro -> int`, `real -> double`, `cadeia -> std::string`, `caracter -> char`, `logico -> bool`, `vazio -> void`; `funcao principal()` vira `int main()` (um programa sem funcoes vira o corpo de `main`); `leia` -> `std::cin >>`, `escreva` -> `std::cout <<` (valores logicos saem como `verdadeiro`/`falso`); `se/senao`, `enquanto`, `para`, `pare`, `continue` e `retorne` viram `if/else`, `while`, `for`, `break`, `continue` e `return`. Variaveis sem inicializador recebem o valor padrao do tipo. Todo identificador ganha o prefixo `p_` (`x` vira `p_x`), entao nomes como `int`, `div`, `time` ou `EOF` nao colidem com o C++; uma variavel local que esconde outra de mesmo nome ganha nome proprio (`p2_x`), e um `caracter` usado onde se espera `cadeia` vira `std::string(1, c)`. O `-o` recusa gravar por cima do proprio arquivo de entrada. O codigo gerado compila sem warnings com `-Wall -Wextra -Wpedantic`.
 
 ### Modo scanner (`--tokens`)
 
@@ -89,18 +119,27 @@ Apos compilar com CMake, execute a suite de testes automatizados (GoogleTest / C
 ctest --test-dir build --output-on-failure
 ```
 
-Ou via Makefile:
+Ou via Makefile (que usa o CMake por baixo, numa pasta `build-testes/`):
 
 ```bash
 make test
 ```
 
+O CI do GitHub Actions roda a suite a cada push e pull request e verifica vazamentos de memoria com o Valgrind.
+
+## Limitacoes
+
+Vetores sao unidimensionais, com tamanho literal, e nao podem ser inicializados na declaracao nem passados como parametro ou devolvidos por funcoes. Nao ha `faca ... enquanto`, `escolha` nem constantes, e `leia` le uma `cadeia` ate o primeiro espaco. Detalhes em [docs/relatorio-final.md](docs/relatorio-final.md#7-limitações-conhecidas).
+
 ## Documentacao
 
+- [Relatorio final](docs/relatorio-final.md)
+- [Demonstracao](docs/demonstracao.md)
 - [Gramatica Lexica](docs/gramatica-lexica.md)
 - [Gramatica Sintatica](docs/gramatica-sintatica.md)
 - [Subprogramas e Modularizacao](docs/gramatica-subprogramas.md)
 - [Comandos de Entrada e Saida](docs/comando-io.md)
+- [Tabela de Simbolos](docs/tabela-simbolos.md)
 
 ## Requisitos
 

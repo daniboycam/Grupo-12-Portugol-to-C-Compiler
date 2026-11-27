@@ -1,8 +1,9 @@
 %{
 #include <iostream>
 #include <string>
-#include "portugol/ast.hpp"
+#include <vector>
 
+#include "portugol/ast.hpp"
 #include "portugol/tabela.hpp"
 
 int yylex();
@@ -16,13 +17,39 @@ static int  num_erros_semanticos = 0;
 
 // Tipo da ultima declaracao reduzida em 'tipo:'; usado por 'declarador:'.
 static std::string tipoCorrente;
+
+// Registra o nome no escopo atual da tabela de simbolos e relata a
+// redeclaracao quando o nome ja existe nesse mesmo escopo.
+static void declararNaTabela(const std::string& nome, const std::string& tipo, int linha,
+                             portugol::CategoriaSimbolo categoria, int dimensao = 0,
+                             const std::string& tipoRetorno = "",
+                             const std::vector<std::string>& tiposParametros = {}) {
+    if (!portugol::tabela.inserirSimbolo(nome, tipo, linha, categoria, dimensao,
+                                         tipoRetorno, tiposParametros)) {
+        const portugol::Simbolo* anterior = portugol::tabela.buscarSimboloEscopoAtual(nome);
+        std::cerr << "Erro semântico na linha " << linha << ": identificador '" << nome
+                  << "' ja declarado no mesmo escopo (linha " << anterior->linha << ")\n";
+        ++num_erros_semanticos;
+    }
+}
 %}
 
 %code requires {
     struct NoAST;
 }
 
+// Redeclaracoes encontradas pela tabela de simbolos na ultima analise. Elas
+// fazem o yyparse() falhar, mas sao erros semanticos, nao de sintaxe; o
+// driver usa esta contagem para dizer qual analise falhou.
+%code provides {
+    int errosDeclaracaoParser();
+    // Definidas no scanner (portugolToC.l).
+    int errosLexicos();
+    void zerarErrosLexicos();
+}
+
 %defines
+%locations
 %define parse.error detailed
 
 // O yynerrs e global e nao volta a zero entre chamadas do yyparse. Sem este
@@ -33,6 +60,7 @@ static std::string tipoCorrente;
     tem_funcoes = false;
     tem_principal = false;
     num_erros_semanticos = 0;
+    zerarErrosLexicos();
     tipoCorrente.clear();
     portugol::tabela.limpar();
     liberarAST(raizAST);
@@ -76,7 +104,7 @@ static std::string tipoCorrente;
 %token ABRE_COLCHETE FECHA_COLCHETE VIRGULA PONTO_VIRGULA
 
 // Tipos dos nao-terminais na AST.
-%type <no>   lista_itens item bloco
+%type <no>   lista_itens item bloco corpo
 %type <no>   comando_enquanto comando_para
 %type <no>   inicializacao_para_opcional expressao_opcional passo_para_opcional
 %type <no>   comando_desvio comando_condicional
@@ -118,6 +146,7 @@ programa:
       {
           if (tem_funcoes && !tem_principal) {
               yyerror("funcao principal() nao definida");
+              ++yynerrs;  // conta como erro de sintaxe para o driver
               liberarAST($3);
               raizAST = nullptr;
               YYABORT;
@@ -139,6 +168,7 @@ programa:
       {
           if (tem_funcoes && !tem_principal) {
               yyerror("funcao principal() nao definida");
+              ++yynerrs;  // conta como erro de sintaxe para o driver
               liberarAST($1);
               raizAST = nullptr;
               YYABORT;
@@ -188,12 +218,28 @@ item:
       }
     ;
 
+// Os parametros e o corpo dividem o escopo da funcao (por isso 'corpo' e nao
+// 'bloco'): redeclarar um parametro no corpo e erro, como em C/C++. A funcao
+// entra na tabela depois do corpo, no escopo de fora, ja com a assinatura.
 funcao:
-      KW_FUNCAO tipo_retorno IDENTIFICADOR ABRE_PAREN lista_parametros FECHA_PAREN bloco
+      KW_FUNCAO tipo_retorno IDENTIFICADOR
       {
+          $<ival>$ = static_cast<int>(portugol::tabela.nivel());
+          portugol::tabela.entrarEscopo($3);
+      }
+      ABRE_PAREN lista_parametros FECHA_PAREN corpo
+      {
+          portugol::tabela.voltarAoNivel(static_cast<std::size_t>($<ival>4));
+
+          std::vector<std::string> tiposParametros;
+          for (const NoAST* p : $6->filhos) tiposParametros.push_back(p->op);
+          declararNaTabela($3, "funcao", @3.first_line, portugol::CategoriaSimbolo::FUNCAO,
+                           0, $2, tiposParametros);
+
           tem_funcoes = true;
           if (std::string($3) == "principal") tem_principal = true;
-          $$ = criarNoFuncao($2, $3, $5, $7);
+          $$ = criarNoFuncao($2, $3, $6, $8);
+          $$->linha = @$.first_line;
           delete[] $3;
       }
     ;
@@ -226,41 +272,89 @@ parametros:
 parametro:
       tipo IDENTIFICADOR
       {
+          declararNaTabela($2, $1, @2.first_line, portugol::CategoriaSimbolo::PARAMETRO);
           $$ = criarNoParametro($1, $2);
+          $$->linha = @$.first_line;
           delete[] $2;
       }
     ;
 
 comando_retorno:
       KW_RETORNE expressao PONTO_VIRGULA
-      { $$ = criarNoRetorne($2); }
+      {
+          $$ = criarNoRetorne($2);
+          $$->linha = @$.first_line;
+      }
     | KW_RETORNE PONTO_VIRGULA
-      { $$ = criarNoRetorne(); }
+      {
+          $$ = criarNoRetorne();
+          $$->linha = @$.first_line;
+      }
     ;
 
+// Bloco com escopo proprio (se, senao, enquanto e bloco solto). O nivel da
+// pilha guardado na abertura fecha tambem escopos internos que a recuperacao
+// de erro tenha deixado abertos.
 bloco:
+      ABRE_CHAVE
+      {
+          $<ival>$ = static_cast<int>(portugol::tabela.nivel());
+          portugol::tabela.entrarEscopo("bloco");
+      }
+      lista_itens FECHA_CHAVE
+      {
+          portugol::tabela.voltarAoNivel(static_cast<std::size_t>($<ival>2));
+          $3->linha = @$.first_line;
+          $$ = $3;
+      }
+    ;
+
+// Corpo de funcao e de "para": usa o escopo que a regra de fora ja abriu.
+corpo:
       ABRE_CHAVE lista_itens FECHA_CHAVE
-      { $$ = $2; }
+      {
+          $2->linha = @$.first_line;
+          $$ = $2;
+      }
     ;
 
 comando_enquanto:
       KW_ENQUANTO ABRE_PAREN expressao FECHA_PAREN bloco
-      { $$ = criarNoEnquanto($3, $5); }
+      {
+          $$ = criarNoEnquanto($3, $5);
+          $$->linha = @$.first_line;
+      }
     ;
 
+// A variavel declarada na inicializacao vale so dentro do laco, e o corpo
+// divide o escopo com ela: dois "para (inteiro i ...)" seguidos sao validos,
+// mas redeclarar o "i" no corpo e erro.
 comando_para:
-      KW_PARA ABRE_PAREN inicializacao_para_opcional PONTO_VIRGULA expressao_opcional PONTO_VIRGULA passo_para_opcional FECHA_PAREN bloco
-      { $$ = criarNoPara($3, $5, $7, $9); }
+      KW_PARA ABRE_PAREN
+      {
+          $<ival>$ = static_cast<int>(portugol::tabela.nivel());
+          portugol::tabela.entrarEscopo("para");
+      }
+      inicializacao_para_opcional PONTO_VIRGULA expressao_opcional PONTO_VIRGULA passo_para_opcional FECHA_PAREN corpo
+      {
+          portugol::tabela.voltarAoNivel(static_cast<std::size_t>($<ival>3));
+          $$ = criarNoPara($4, $6, $8, $10);
+          $$->linha = @$.first_line;
+      }
     ;
 
 inicializacao_para_opcional:
       %empty
       { $$ = nullptr; }
     | acesso operador_atribuicao expressao
-      { $$ = criarNoAtribuicao($2, $1, $3); }
+      {
+          $$ = criarNoAtribuicao($2, $1, $3);
+          $$->linha = @$.first_line;
+      }
     | tipo lista_declaradores
       {
           $2->op = $1;
+          $2->linha = @$.first_line;
           $$ = $2;
       }
     ;
@@ -276,14 +370,23 @@ passo_para_opcional:
       %empty
       { $$ = nullptr; }
     | acesso operador_atribuicao expressao
-      { $$ = criarNoAtribuicao($2, $1, $3); }
+      {
+          $$ = criarNoAtribuicao($2, $1, $3);
+          $$->linha = @$.first_line;
+      }
     ;
 
 comando_desvio:
       KW_PARE PONTO_VIRGULA
-      { $$ = criarNoDesvio(NO_PARE); }
+      {
+          $$ = criarNoDesvio(NO_PARE);
+          $$->linha = @$.first_line;
+      }
     | KW_CONTINUE PONTO_VIRGULA
-      { $$ = criarNoDesvio(NO_CONTINUE); }
+      {
+          $$ = criarNoDesvio(NO_CONTINUE);
+          $$->linha = @$.first_line;
+      }
     ;
 
 // se (expressao) { ... } senao { ... }
@@ -294,17 +397,29 @@ comando_desvio:
 // aninhar um bloco a cada condicao nova.
 comando_condicional:
       KW_SE ABRE_PAREN expressao FECHA_PAREN bloco
-      { $$ = criarNoSe($3, $5); }
+      {
+          $$ = criarNoSe($3, $5);
+          $$->linha = @$.first_line;
+      }
     | KW_SE ABRE_PAREN expressao FECHA_PAREN bloco KW_SENAO bloco
-      { $$ = criarNoSe($3, $5, $7); }
+      {
+          $$ = criarNoSe($3, $5, $7);
+          $$->linha = @$.first_line;
+      }
     | KW_SE ABRE_PAREN expressao FECHA_PAREN bloco KW_SENAO comando_condicional
-      { $$ = criarNoSe($3, $5, $7); }
+      {
+          $$ = criarNoSe($3, $5, $7);
+          $$->linha = @$.first_line;
+      }
     ;
 
 // Leitura: leia(<variavel>);  (<variavel> e um acesso, com ou sem indice)
 comando_leia:
       KW_LEIA ABRE_PAREN acesso FECHA_PAREN PONTO_VIRGULA
-      { $$ = criarNoLeia($3); }
+      {
+          $$ = criarNoLeia($3);
+          $$->linha = @$.first_line;
+      }
     ;
 
 // Escrita: escreva(<lista_expressoes>);
@@ -313,7 +428,10 @@ comando_leia:
 // e obrigatorio (lista_expressoes_escrita nao tem alternativa vazia).
 comando_escreva:
       KW_ESCREVA ABRE_PAREN lista_expressoes_escrita FECHA_PAREN PONTO_VIRGULA
-      { $$ = criarNoEscreva($3); }
+      {
+          $$ = criarNoEscreva($3);
+          $$->linha = @$.first_line;
+      }
     ;
 
 lista_expressoes_escrita:
@@ -334,6 +452,7 @@ declaracao_variavel:
       tipo lista_declaradores PONTO_VIRGULA
       {
           $2->op = $1;
+          $2->linha = @$.first_line;
           $$ = $2;
       }
     ;
@@ -359,13 +478,10 @@ lista_declaradores:
 declarador:
       IDENTIFICADOR dimensao_opcional inicializacao_opcional
       {
-          if (!portugol::tabela.inserirSimbolo($1, tipoCorrente, yylineno)) {
-              std::cerr << "erro semantico na linha " << yylineno
-                        << ": identificador '" << $1
-                        << "' ja declarado no mesmo escopo\n";
-              ++num_erros_semanticos;
-          }
+          declararNaTabela($1, tipoCorrente, @1.first_line,
+                           portugol::CategoriaSimbolo::VARIAVEL, $2 > 0 ? $2 : 0);
           $$ = criarNoDeclarador($1, $2, $3);
+          $$->linha = @$.first_line;
           delete[] $1;
       }
     ;
@@ -387,7 +503,10 @@ inicializacao_opcional:
 // Comandos iniciais. Outros comandos ficam para as issues especificas.
 comando_atribuicao:
       acesso operador_atribuicao expressao PONTO_VIRGULA
-      { $$ = criarNoAtribuicao($2, $1, $3); }
+      {
+          $$ = criarNoAtribuicao($2, $1, $3);
+          $$->linha = @$.first_line;
+      }
     ;
 
 operador_atribuicao:
@@ -408,54 +527,57 @@ acesso:
       IDENTIFICADOR
       {
           $$ = criarNoId($1);
+          $$->linha = @$.first_line;
           delete[] $1;
       }
     | IDENTIFICADOR ABRE_COLCHETE expressao FECHA_COLCHETE
       {
           $$ = criarNoAcessoVetor($1, $3);
+          $$->linha = @$.first_line;
           delete[] $1;
       }
     ;
 
 // Expressoes usadas em inicializadores e atribuicoes.
 expressao:
-      NUM_INT                 { $$ = criarNoNum($1); }
-    | NUM_REAL                { $$ = criarNoReal($1); }
-    | LIT_STRING              { $$ = criarNoTexto($1); delete[] $1; }
-    | LIT_CHAR                { $$ = criarNoChar($1); }
-    | KW_VERDADEIRO           { $$ = criarNoLogico(true); }
-    | KW_FALSO                { $$ = criarNoLogico(false); }
+      NUM_INT                 { $$ = criarNoNum($1); $$->linha = @$.first_line; }
+    | NUM_REAL                { $$ = criarNoReal($1); $$->linha = @$.first_line; }
+    | LIT_STRING              { $$ = criarNoTexto($1); $$->linha = @$.first_line; delete[] $1; }
+    | LIT_CHAR                { $$ = criarNoChar($1); $$->linha = @$.first_line; }
+    | KW_VERDADEIRO           { $$ = criarNoLogico(true); $$->linha = @$.first_line; }
+    | KW_FALSO                { $$ = criarNoLogico(false); $$->linha = @$.first_line; }
     | acesso                  { $$ = $1; }
     | chamada_funcao          { $$ = $1; }
     | ABRE_PAREN expressao FECHA_PAREN { $$ = $2; }
-    | MAIS expressao          %prec UNARIO_MAIS  { $$ = criarNoOpUnaria("+", $2); }
-    | MENOS expressao         %prec UNARIO_MENOS { $$ = criarNoOpUnaria("-", $2); }
-    | NAO expressao           { $$ = criarNoOpUnaria("!", $2); }
-    | BIT_NAO expressao       { $$ = criarNoOpUnaria("~", $2); }
-    | expressao OU expressao          { $$ = criarNoOp("||", $1, $3); }
-    | expressao E expressao           { $$ = criarNoOp("&&", $1, $3); }
-    | expressao BIT_OU expressao      { $$ = criarNoOp("|", $1, $3); }
-    | expressao BIT_XOU expressao     { $$ = criarNoOp("^", $1, $3); }
-    | expressao BIT_E expressao       { $$ = criarNoOp("&", $1, $3); }
-    | expressao IGUAL expressao       { $$ = criarNoOp("==", $1, $3); }
-    | expressao DIFERENTE expressao   { $$ = criarNoOp("!=", $1, $3); }
-    | expressao MENOR expressao       { $$ = criarNoOp("<", $1, $3); }
-    | expressao MENOR_IGUAL expressao { $$ = criarNoOp("<=", $1, $3); }
-    | expressao MAIOR expressao       { $$ = criarNoOp(">", $1, $3); }
-    | expressao MAIOR_IGUAL expressao { $$ = criarNoOp(">=", $1, $3); }
-    | expressao DESLOCA_ESQ expressao { $$ = criarNoOp("<<", $1, $3); }
-    | expressao DESLOCA_DIR expressao { $$ = criarNoOp(">>", $1, $3); }
-    | expressao MAIS expressao        { $$ = criarNoOp("+", $1, $3); }
-    | expressao MENOS expressao       { $$ = criarNoOp("-", $1, $3); }
-    | expressao VEZES expressao       { $$ = criarNoOp("*", $1, $3); }
-    | expressao DIVIDIDO expressao    { $$ = criarNoOp("/", $1, $3); }
-    | expressao RESTO expressao       { $$ = criarNoOp("%", $1, $3); }
+    | MAIS expressao          %prec UNARIO_MAIS  { $$ = criarNoOpUnaria("+", $2); $$->linha = @$.first_line; }
+    | MENOS expressao         %prec UNARIO_MENOS { $$ = criarNoOpUnaria("-", $2); $$->linha = @$.first_line; }
+    | NAO expressao           { $$ = criarNoOpUnaria("!", $2); $$->linha = @$.first_line; }
+    | BIT_NAO expressao       { $$ = criarNoOpUnaria("~", $2); $$->linha = @$.first_line; }
+    | expressao OU expressao          { $$ = criarNoOp("||", $1, $3); $$->linha = @$.first_line; }
+    | expressao E expressao           { $$ = criarNoOp("&&", $1, $3); $$->linha = @$.first_line; }
+    | expressao BIT_OU expressao      { $$ = criarNoOp("|", $1, $3); $$->linha = @$.first_line; }
+    | expressao BIT_XOU expressao     { $$ = criarNoOp("^", $1, $3); $$->linha = @$.first_line; }
+    | expressao BIT_E expressao       { $$ = criarNoOp("&", $1, $3); $$->linha = @$.first_line; }
+    | expressao IGUAL expressao       { $$ = criarNoOp("==", $1, $3); $$->linha = @$.first_line; }
+    | expressao DIFERENTE expressao   { $$ = criarNoOp("!=", $1, $3); $$->linha = @$.first_line; }
+    | expressao MENOR expressao       { $$ = criarNoOp("<", $1, $3); $$->linha = @$.first_line; }
+    | expressao MENOR_IGUAL expressao { $$ = criarNoOp("<=", $1, $3); $$->linha = @$.first_line; }
+    | expressao MAIOR expressao       { $$ = criarNoOp(">", $1, $3); $$->linha = @$.first_line; }
+    | expressao MAIOR_IGUAL expressao { $$ = criarNoOp(">=", $1, $3); $$->linha = @$.first_line; }
+    | expressao DESLOCA_ESQ expressao { $$ = criarNoOp("<<", $1, $3); $$->linha = @$.first_line; }
+    | expressao DESLOCA_DIR expressao { $$ = criarNoOp(">>", $1, $3); $$->linha = @$.first_line; }
+    | expressao MAIS expressao        { $$ = criarNoOp("+", $1, $3); $$->linha = @$.first_line; }
+    | expressao MENOS expressao       { $$ = criarNoOp("-", $1, $3); $$->linha = @$.first_line; }
+    | expressao VEZES expressao       { $$ = criarNoOp("*", $1, $3); $$->linha = @$.first_line; }
+    | expressao DIVIDIDO expressao    { $$ = criarNoOp("/", $1, $3); $$->linha = @$.first_line; }
+    | expressao RESTO expressao       { $$ = criarNoOp("%", $1, $3); $$->linha = @$.first_line; }
     ;
 
 chamada_funcao:
       IDENTIFICADOR ABRE_PAREN lista_argumentos FECHA_PAREN
       {
           $$ = criarNoChamada($1, $3);
+          $$->linha = @$.first_line;
           delete[] $1;
       }
     ;
@@ -486,6 +608,8 @@ argumentos:
     ;
 
 %%
+
+int errosDeclaracaoParser() { return num_erros_semanticos; }
 
 void yyerror(const char* s) {
     extern int yylineno;

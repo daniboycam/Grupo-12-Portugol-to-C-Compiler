@@ -42,3 +42,42 @@ target_compile_definitions(testes_integracao
     PRIVATE DIRETORIO_RAIZ="${CMAKE_SOURCE_DIR}")
 
 gtest_discover_tests(testes_integracao)
+
+add_executable(testes_semantico
+    semantico/semantico_test.cpp)
+
+target_link_libraries(testes_semantico
+    PRIVATE portugolc_core GTest::gtest_main)
+
+gtest_discover_tests(testes_semantico)
+
+add_executable(testes_tabela
+    tabela/tabela_test.cpp)
+
+target_link_libraries(testes_tabela
+    PRIVATE portugolc_core GTest::gtest_main)
+
+gtest_discover_tests(testes_tabela)
+
+add_executable(testes_codegen
+    codegen/codegen_test.cpp)
+
+target_link_libraries(testes_codegen
+    PRIVATE portugolc_core GTest::gtest_main)
+
+gtest_discover_tests(testes_codegen)
+
+# Issue #67 - Testes ponta a ponta pela interface do compilador
+add_executable(testes_e2e
+    e2e/cli_test.cpp)
+
+target_link_libraries(testes_e2e
+    PRIVATE GTest::gtest_main)
+
+target_compile_definitions(testes_e2e
+    PRIVATE PORTUGOLC_BIN="$<TARGET_FILE:portugolc>"
+            DIRETORIO_RAIZ="${CMAKE_SOURCE_DIR}")
+
+add_dependencies(testes_e2e portugolc)
+
+gtest_discover_tests(testes_e2e)

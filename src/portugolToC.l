@@ -75,9 +75,18 @@ static char valorEscape(char letra) {
     }
 }
 
+// Erros lexicos da analise corrente. O caractere invalido e ignorado para que
+// os erros seguintes tambem aparecam, mas o driver usa esta contagem para
+// recusar o programa (sem ela, um programa com '@' gerava C++ normalmente).
+static int num_erros_lexicos = 0;
+
+int errosLexicos() { return num_erros_lexicos; }
+void zerarErrosLexicos() { num_erros_lexicos = 0; }
+
 /// Emite em stderr uma mensagem padronizada de erro lexico na linha e coluna informadas.
 static void erroLexicoNaPosicao(int linha, int coluna, const string& mensagem) {
     cerr << "Erro léxico [Linha " << linha << ", Coluna " << coluna << "]: " << mensagem << "\n";
+    ++num_erros_lexicos;
 }
 
 /// Emite em stderr um erro lexico na posicao (yylineno, colunaToken) do token atual.
@@ -85,11 +94,22 @@ static void erroLexico(const string& mensagem) {
     erroLexicoNaPosicao(yylineno, colunaToken, mensagem);
 }
 
-/// Executado antes de cada acao do Flex: registra a coluna inicial do token e
-/// avanca yycolumn pela quantidade de caracteres UTF-8 do lexema lido.
+/// Executado antes de cada acao do Flex: registra a coluna inicial do token,
+/// atualiza a localizacao usada pelo Bison (yylloc) e avanca yycolumn pela
+/// quantidade de caracteres UTF-8 do lexema lido.
+#ifdef YYLTYPE_IS_DECLARED
+#define YY_USER_ACTION \
+    colunaToken = yycolumn; \
+    yylloc.first_line = yylineno; \
+    yylloc.last_line = yylineno; \
+    yylloc.first_column = colunaToken; \
+    yycolumn += contarCaracteres(yytext, yyleng); \
+    yylloc.last_column = yycolumn;
+#else
 #define YY_USER_ACTION \
     colunaToken = yycolumn; \
     yycolumn += contarCaracteres(yytext, yyleng);
+#endif
 %}
 
 %option noyywrap

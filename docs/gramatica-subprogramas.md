@@ -106,13 +106,12 @@ permanecer `false`, é emitida mensagem via `yyerror` e a análise
 
 ## Limitações
 
-- A validação de tipos de argumentos, aridade e do tipo de retorno fica
-  para a análise semântica.
-- A restrição de que `retorne;` só aparece em funções `vazio` também é
-  verificação semântica.
-- Os parâmetros não entram na tabela de símbolos: ela ainda não tem escopos,
-  e registrar parâmetros num escopo único faria duas funções com parâmetros
-  de mesmo nome acusarem redeclaração.
+- Parâmetros são sempre escalares: vetores não podem ser passados como
+  parâmetro nem devolvidos por uma função.
 - A gramática aceita uma função declarada dentro do corpo de outra, porque o
   corpo é um `bloco` e o `bloco` aceita qualquer `item`. C++ não permite
-  funções aninhadas, então isso precisa ser recusado antes da geração de código.
+  funções aninhadas, então a análise semântica recusa esse caso.
+- Tipos e quantidade de argumentos, tipo de retorno, `retorne;` só em funções
+  `vazio` e retorno em todos os caminhos são verificados pela análise
+  semântica; parâmetro repetido e função duplicada, pela tabela de símbolos
+  (ver [tabela-simbolos.md](tabela-simbolos.md)).

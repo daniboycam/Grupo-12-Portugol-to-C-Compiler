@@ -1,10 +1,10 @@
-// Exemplo usado para exercitar o analisador lexico.
+// Exemplo usado no modo scanner (--tokens) e na analise completa.
 programa {
     funcao inteiro soma(inteiro a, inteiro b) {
         retorne a + b;
     }
 
-    funcao vazio inicio() {
+    funcao vazio principal() {
         inteiro x = 10;
         real taxa = 2.5e-3;
         cadeia nome = "Portugol";
