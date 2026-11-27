@@ -46,9 +46,9 @@ Sem `--tokens`, o compilador executa a analise lexica e sintatica completa, exib
 
 ```
 ===== Tabela de Simbolos =====
-nome	tipo	linha
-nota	inteiro	3
-conceito	cadeia	4
+nome	categoria	tipo	escopo	linha
+nota	variavel	inteiro	global	3
+conceito	variavel	cadeia	global	4
 ==============================
 Analise sintatica concluida com sucesso.
 Analise semantica concluida com sucesso.
@@ -128,6 +128,7 @@ make test
 - [Gramatica Sintatica](docs/gramatica-sintatica.md)
 - [Subprogramas e Modularizacao](docs/gramatica-subprogramas.md)
 - [Comandos de Entrada e Saida](docs/comando-io.md)
+- [Tabela de Simbolos](docs/tabela-simbolos.md)
 
 ## Requisitos
 

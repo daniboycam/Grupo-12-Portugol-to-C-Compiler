@@ -1,8 +1,9 @@
 %{
 #include <iostream>
 #include <string>
-#include "portugol/ast.hpp"
+#include <vector>
 
+#include "portugol/ast.hpp"
 #include "portugol/tabela.hpp"
 
 int yylex();
@@ -16,10 +17,32 @@ static int  num_erros_semanticos = 0;
 
 // Tipo da ultima declaracao reduzida em 'tipo:'; usado por 'declarador:'.
 static std::string tipoCorrente;
+
+// Registra o nome no escopo atual da tabela de simbolos e relata a
+// redeclaracao quando o nome ja existe nesse mesmo escopo.
+static void declararNaTabela(const std::string& nome, const std::string& tipo, int linha,
+                             portugol::CategoriaSimbolo categoria, int dimensao = 0,
+                             const std::string& tipoRetorno = "",
+                             const std::vector<std::string>& tiposParametros = {}) {
+    if (!portugol::tabela.inserirSimbolo(nome, tipo, linha, categoria, dimensao,
+                                         tipoRetorno, tiposParametros)) {
+        const portugol::Simbolo* anterior = portugol::tabela.buscarSimboloEscopoAtual(nome);
+        std::cerr << "erro semantico na linha " << linha << ": identificador '" << nome
+                  << "' ja declarado no mesmo escopo (linha " << anterior->linha << ")\n";
+        ++num_erros_semanticos;
+    }
+}
 %}
 
 %code requires {
     struct NoAST;
+}
+
+// Redeclaracoes encontradas pela tabela de simbolos na ultima analise. Elas
+// fazem o yyparse() falhar, mas sao erros semanticos, nao de sintaxe; o
+// driver usa esta contagem para dizer qual analise falhou.
+%code provides {
+    int errosDeclaracaoParser();
 }
 
 %defines
@@ -77,7 +100,7 @@ static std::string tipoCorrente;
 %token ABRE_COLCHETE FECHA_COLCHETE VIRGULA PONTO_VIRGULA
 
 // Tipos dos nao-terminais na AST.
-%type <no>   lista_itens item bloco
+%type <no>   lista_itens item bloco corpo
 %type <no>   comando_enquanto comando_para
 %type <no>   inicializacao_para_opcional expressao_opcional passo_para_opcional
 %type <no>   comando_desvio comando_condicional
@@ -119,6 +142,7 @@ programa:
       {
           if (tem_funcoes && !tem_principal) {
               yyerror("funcao principal() nao definida");
+              ++yynerrs;  // conta como erro de sintaxe para o driver
               liberarAST($3);
               raizAST = nullptr;
               YYABORT;
@@ -140,6 +164,7 @@ programa:
       {
           if (tem_funcoes && !tem_principal) {
               yyerror("funcao principal() nao definida");
+              ++yynerrs;  // conta como erro de sintaxe para o driver
               liberarAST($1);
               raizAST = nullptr;
               YYABORT;
@@ -189,12 +214,27 @@ item:
       }
     ;
 
+// Os parametros e o corpo dividem o escopo da funcao (por isso 'corpo' e nao
+// 'bloco'): redeclarar um parametro no corpo e erro, como em C/C++. A funcao
+// entra na tabela depois do corpo, no escopo de fora, ja com a assinatura.
 funcao:
-      KW_FUNCAO tipo_retorno IDENTIFICADOR ABRE_PAREN lista_parametros FECHA_PAREN bloco
+      KW_FUNCAO tipo_retorno IDENTIFICADOR
       {
+          $<ival>$ = static_cast<int>(portugol::tabela.nivel());
+          portugol::tabela.entrarEscopo($3);
+      }
+      ABRE_PAREN lista_parametros FECHA_PAREN corpo
+      {
+          portugol::tabela.voltarAoNivel(static_cast<std::size_t>($<ival>4));
+
+          std::vector<std::string> tiposParametros;
+          for (const NoAST* p : $6->filhos) tiposParametros.push_back(p->op);
+          declararNaTabela($3, "funcao", @3.first_line, portugol::CategoriaSimbolo::FUNCAO,
+                           0, $2, tiposParametros);
+
           tem_funcoes = true;
           if (std::string($3) == "principal") tem_principal = true;
-          $$ = criarNoFuncao($2, $3, $5, $7);
+          $$ = criarNoFuncao($2, $3, $6, $8);
           $$->linha = @$.first_line;
           delete[] $3;
       }
@@ -228,6 +268,7 @@ parametros:
 parametro:
       tipo IDENTIFICADOR
       {
+          declararNaTabela($2, $1, @2.first_line, portugol::CategoriaSimbolo::PARAMETRO);
           $$ = criarNoParametro($1, $2);
           $$->linha = @$.first_line;
           delete[] $2;
@@ -247,7 +288,25 @@ comando_retorno:
       }
     ;
 
+// Bloco com escopo proprio (se, senao, enquanto e bloco solto). O nivel da
+// pilha guardado na abertura fecha tambem escopos internos que a recuperacao
+// de erro tenha deixado abertos.
 bloco:
+      ABRE_CHAVE
+      {
+          $<ival>$ = static_cast<int>(portugol::tabela.nivel());
+          portugol::tabela.entrarEscopo("bloco");
+      }
+      lista_itens FECHA_CHAVE
+      {
+          portugol::tabela.voltarAoNivel(static_cast<std::size_t>($<ival>2));
+          $3->linha = @$.first_line;
+          $$ = $3;
+      }
+    ;
+
+// Corpo de funcao e de "para": usa o escopo que a regra de fora ja abriu.
+corpo:
       ABRE_CHAVE lista_itens FECHA_CHAVE
       {
           $2->linha = @$.first_line;
@@ -263,10 +322,19 @@ comando_enquanto:
       }
     ;
 
+// A variavel declarada na inicializacao vale so dentro do laco, e o corpo
+// divide o escopo com ela: dois "para (inteiro i ...)" seguidos sao validos,
+// mas redeclarar o "i" no corpo e erro.
 comando_para:
-      KW_PARA ABRE_PAREN inicializacao_para_opcional PONTO_VIRGULA expressao_opcional PONTO_VIRGULA passo_para_opcional FECHA_PAREN bloco
+      KW_PARA ABRE_PAREN
       {
-          $$ = criarNoPara($3, $5, $7, $9);
+          $<ival>$ = static_cast<int>(portugol::tabela.nivel());
+          portugol::tabela.entrarEscopo("para");
+      }
+      inicializacao_para_opcional PONTO_VIRGULA expressao_opcional PONTO_VIRGULA passo_para_opcional FECHA_PAREN corpo
+      {
+          portugol::tabela.voltarAoNivel(static_cast<std::size_t>($<ival>3));
+          $$ = criarNoPara($4, $6, $8, $10);
           $$->linha = @$.first_line;
       }
     ;
@@ -406,12 +474,8 @@ lista_declaradores:
 declarador:
       IDENTIFICADOR dimensao_opcional inicializacao_opcional
       {
-          if (!portugol::tabela.inserirSimbolo($1, tipoCorrente, @1.first_line)) {
-              std::cerr << "erro semantico na linha " << @1.first_line
-                        << ": identificador '" << $1
-                        << "' ja declarado no mesmo escopo\n";
-              ++num_erros_semanticos;
-          }
+          declararNaTabela($1, tipoCorrente, @1.first_line,
+                           portugol::CategoriaSimbolo::VARIAVEL, $2 > 0 ? $2 : 0);
           $$ = criarNoDeclarador($1, $2, $3);
           $$->linha = @$.first_line;
           delete[] $1;
@@ -540,6 +604,8 @@ argumentos:
     ;
 
 %%
+
+int errosDeclaracaoParser() { return num_erros_semanticos; }
 
 void yyerror(const char* s) {
     extern int yylineno;

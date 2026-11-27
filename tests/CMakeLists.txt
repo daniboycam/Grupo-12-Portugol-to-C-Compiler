@@ -51,6 +51,14 @@ target_link_libraries(testes_semantico
 
 gtest_discover_tests(testes_semantico)
 
+add_executable(testes_tabela
+    tabela/tabela_test.cpp)
+
+target_link_libraries(testes_tabela
+    PRIVATE portugolc_core GTest::gtest_main)
+
+gtest_discover_tests(testes_tabela)
+
 add_executable(testes_codegen
     codegen/codegen_test.cpp)
 
