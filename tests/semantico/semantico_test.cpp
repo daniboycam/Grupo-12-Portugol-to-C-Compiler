@@ -166,19 +166,8 @@ TEST(SemanticoDeclaracao, VariavelDoParaNaoVazaDoLaco) {
                 "variavel 'k' nao declarada");
 }
 
-TEST(SemanticoDeclaracao, ParametroRepetido) {
-    esperarErro(
-        "programa {\n funcao vazio principal() { }\n"
-        " funcao inteiro f(inteiro a, inteiro a) { retorne a; }\n}\n",
-        3, "parametro 'a' repetido");
-}
-
-TEST(SemanticoDeclaracao, FuncaoDuplicada) {
-    esperarErro(
-        "programa {\n funcao vazio principal() { }\n funcao vazio f() { }\n"
-        " funcao vazio f() { }\n}\n",
-        4, "'f' ja declarado");
-}
+// Parametro repetido e funcao declarada duas vezes sao barrados antes, pela
+// tabela de simbolos do parser; esses casos estao em tests/tabela/.
 
 TEST(SemanticoDeclaracao, FuncaoDentroDeFuncao) {
     esperarErro(
